@@ -102,6 +102,389 @@ end
 local args = { ... }
 xpcall(function()
 
+	local ARCHITECTURES = {}
+	do
+		local ARCH_R3 = {}
+		ARCH_R3.includes = {
+			["r3"] = ([==[
+				%define dw `DW'
+				%define org `ORG'
+
+				%define fl 0x0708
+				%define pc 0x0709
+				%define _loopcontrolbase 0x070C
+				%eval lc _loopcontrolbase 0 +
+				%eval lf _loopcontrolbase 1 +
+				%eval lt _loopcontrolbase 2 +
+				%define wm 0x070F
+
+				%macro push Thing
+					mov [--sp], Thing
+				%endmacro
+
+				%macro pop Thing
+					mov Thing, [sp++]
+				%endmacro
+			]==]):gsub("`([A-Z]+)'", function(cap)
+				return RESERVED[cap]
+			end)
+			--[[
+				%macro _loop_internal Reg, Count, Done, Loop
+					mov Reg, _loopcontrolbase
+					mov [Reg++], Count
+					mov [Reg++], Done
+					mov [Reg++], Loop
+				%endmacro
+
+				%macro loop Count, Done, Reg
+				`PEERLABEL' . `MACROUNIQUE' begin:
+					_loop_internal Reg, Count, Done, `PEERLABEL' `MACROUNIQUE' loop_until
+				`PEERLABEL' `MACROUNIQUE' loop_until:
+				`SUPERLABEL' `LABELCONTEXT':
+				%endmacro
+			--]] -- LOOPCONTROL
+		}
+
+		ARCH_R3.freebits = 29
+		ARCH_R3.nop = 0x20000000
+		ARCH_R3.entities = {
+			["r0"] = { type = "register", offset = 0 },
+			["r1"] = { type = "register", offset = 1 },
+			["r2"] = { type = "register", offset = 2 },
+			["r3"] = { type = "register", offset = 3 },
+			["r4"] = { type = "register", offset = 4 },
+			["r5"] = { type = "register", offset = 5 },
+			["r6"] = { type = "register", offset = 6 },
+			["r7"] = { type = "register", offset = 7 },
+			["sp"] = { type = "register", offset = 7 },
+			["lo"] = { type = "last_output" },
+		}
+		ARCH_R3.mnemonics = {}
+		do
+			local mnemonic_to_class_code = {
+				[ "nop"] = { class = "nop", code = 0x20000000 },
+				[ "mov"] = { class =  "02", code = 0x20000000 },
+				["call"] = { class =   "2", code = 0x211F0000 },
+				[  "jn"] = { class =   "2", code = 0x22000000 },
+				[ "jmp"] = { class =   "2", code = 0x22010000 },
+				[ "ret"] = { class = "nop", code = 0x22011700 },
+				[ "jnb"] = { class =   "2", code = 0x22020000 },
+				[ "jae"] = { class =   "2", code = 0x22020000 },
+				[ "jnc"] = { class =   "2", code = 0x22020000 },
+				[  "jb"] = { class =   "2", code = 0x22030000 },
+				["jnae"] = { class =   "2", code = 0x22030000 },
+				[  "jc"] = { class =   "2", code = 0x22030000 },
+				[ "jno"] = { class =   "2", code = 0x22040000 },
+				[  "jo"] = { class =   "2", code = 0x22050000 },
+				[ "jne"] = { class =   "2", code = 0x22060000 },
+				[ "jnz"] = { class =   "2", code = 0x22060000 },
+				[  "je"] = { class =   "2", code = 0x22070000 },
+				[  "jz"] = { class =   "2", code = 0x22070000 },
+				[ "jns"] = { class =   "2", code = 0x22080000 },
+				[  "js"] = { class =   "2", code = 0x22090000 },
+				[ "jnl"] = { class =   "2", code = 0x220A0000 },
+				[ "jge"] = { class =   "2", code = 0x220A0000 },
+				[  "jl"] = { class =   "2", code = 0x220B0000 },
+				["jnge"] = { class =   "2", code = 0x220B0000 },
+				["jnbe"] = { class =   "2", code = 0x220C0000 },
+				[  "ja"] = { class =   "2", code = 0x220C0000 },
+				[ "jbe"] = { class =   "2", code = 0x220D0000 },
+				[ "jna"] = { class =   "2", code = 0x220D0000 },
+				["jnle"] = { class =   "2", code = 0x220E0000 },
+				[  "jg"] = { class =   "2", code = 0x220E0000 },
+				[ "jle"] = { class =   "2", code = 0x220F0000 },
+				[ "jng"] = { class =   "2", code = 0x220F0000 },
+				[ "hlt"] = { class = "nop", code = 0x23000000 },
+				[ "bsf"] = { class =  "02", code = 0x24000000 },
+				[ "bsr"] = { class =  "02", code = 0x25000000 },
+				[ "zsf"] = { class =  "02", code = 0x26000000 },
+				[ "zsr"] = { class =  "02", code = 0x27000000 },
+				[ "xor"] = { class = "012", code = 0x28000000 },
+				[  "or"] = { class = "012", code = 0x29000000 },
+				[ "and"] = { class = "012", code = 0x2A000000 },
+				[ "add"] = { class = "012", code = 0x2C000000 },
+				[ "adc"] = { class = "012", code = 0x2D000000 },
+				[ "sub"] = { class = "012", code = 0x2E000000 },
+				[ "sbb"] = { class = "012", code = 0x2F000000 },
+				[ "mak"] = { class = "012", code = 0x30000000 },
+				[ "ext"] = { class = "012", code = 0x31000000 },
+				["mak1"] = { class = "012", code = 0x32000000 },
+				["ext1"] = { class = "012", code = 0x33000000 },
+				[ "scl"] = { class = "012", code = 0x34000000 },
+				[ "scr"] = { class = "012", code = 0x35000000 },
+				[ "rol"] = { class = "012", code = 0x36000000 },
+				[ "ror"] = { class = "012", code = 0x37000000 },
+				["op18"] = { class = "nop", code = 0x38000000 },
+				["op19"] = { class = "nop", code = 0x39000000 },
+				["test"] = { class =  "12", code = 0x3A000000 },
+				["andn"] = { class =  "12", code = 0x3B000000 },
+				["op1c"] = { class = "nop", code = 0x3C000000 },
+				["op1d"] = { class = "nop", code = 0x3D000000 },
+				[ "cmp"] = { class =  "12", code = 0x3E000000 },
+				["cmpc"] = { class =  "12", code = 0x3F000000 },
+			}
+
+			local operand_modes = {
+				{ "nop", {                                                                     }, false, false, 0x00000000 },
+				{  "02", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
+				{  "02", { { "[imm]", 13,  0 }, { "[imm]", 13,    -1 }                         },  true, false, 0x00806000 },
+				{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
+				{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }, { "[imm]", 13,    -1 } }, false,  true, 0x00806000 },
+				{ "012", { {  "creg",     16 }, { "immsx",  8, 0, 14 }, {  "creg",         8 } }, false, false, 0x00008000 },
+				{ "012", { {  "creg",     16 }, {  "creg",         8 }, { "immsx",  8, 0, 14 } }, false, false, 0x00808000 },
+				{ "012", { {  "creg",     16 }, {  "creg",         8 }, {  "creg",         0 } }, false, false, 0x00800000 },
+				{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }, {  "creg",        -1 } }, false,  true, 0x00400000 },
+				{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }, {  "creg",        -1 } }, false,  true, 0x00004000 },
+				{  "12", { {   "imm", 16,  0 }, {  "creg",        16 }                         }, false, false, 0x00400000 },
+				{  "12", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00004000 },
+				{  "02", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
+				{  "02", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
+				{  "02", { {  "creg",     16 }, {  "creg",         8 }                         }, false, false, 0x00000000 },
+				{   "2", { { "[imm]", 13,  0 }                                                 }, false, false, 0x00804000 },
+				{   "2", { {   "imm", 16,  0 }                                                 }, false, false, 0x00C00000 },
+				{   "2", { {  "creg",      8 }                                                 }, false, false, 0x00000000 },
+				{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
+				{ "012", { {  "creg",     16 }, {  "creg",        -1 }, {   "imm", 16,     0 } },  true, false, 0x00C00000 },
+				{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
+				{ "012", { {  "creg",     16 }, {  "creg",         0 }, {  "creg",         8 } }, false, false, 0x00000000 },
+				{  "12", { {  "creg",      0 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
+				{  "12", { {  "creg",      0 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
+				{  "12", { {  "creg",      0 }, {  "creg",         8 }                         }, false, false, 0x00000000 },
+			}
+			local mnemonic_desc = {}
+			function mnemonic_desc.length()
+				return true, 1 -- * RISC :)
+			end
+
+			function mnemonic_desc.emit(mnemonic_token, parameters)
+				local operands = {}
+				for ix, ix_param in ipairs(parameters) do
+					if #ix_param == 1
+					   and ix_param[1]:is("entity") and ix_param[1].entity.type == "last_output" then
+						table.insert(operands, {
+							type = "lo"
+						})
+
+					elseif #ix_param == 1
+					   and ix_param[1]:is("entity") and ix_param[1].entity.type == "register" then
+						table.insert(operands, {
+							type = "reg",
+							value = ix_param[1].entity.offset
+						})
+
+					elseif #ix_param == 1
+					   and ix_param[1]:number() then
+						table.insert(operands, {
+							type = "imm",
+							value = ix_param[1].parsed,
+							token = ix_param[1]
+						})
+
+					elseif #ix_param == 5
+					   and ix_param[1]:punctuator("[")
+					   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register" and ix_param[2].entity.offset == 7
+					   and ix_param[4]:number()
+					   and (
+					   		(ix_param[3]:punctuator("+") and ix_param[4].parsed <  16) or
+					   		(ix_param[3]:punctuator("-") and ix_param[4].parsed <= 16)
+					       )
+					   and ix_param[5]:punctuator("]") then
+						table.insert(operands, {
+							type = "[sp+s5]",
+							value = ix_param[3]:punctuator("-") and (0x20 - ix_param[4].parsed) or ix_param[4].parsed
+						})
+
+					elseif #ix_param == 3
+					   and ix_param[1]:punctuator("[")
+					   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register" and ix_param[2].entity.offset == 7
+					   and ix_param[3]:punctuator("]") then
+						table.insert(operands, {
+							type = "[sp+s5]",
+							value = 0
+						})
+
+					elseif #ix_param == 3
+					   and ix_param[1]:punctuator("[")
+					   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register"
+					   and ix_param[3]:punctuator("]") then
+						table.insert(operands, {
+							type = "[reg]",
+							value = ix_param[2].entity.offset
+						})
+
+					elseif #ix_param == 3
+					   and ix_param[1]:punctuator("[")
+					   and ix_param[2]:number()
+					   and ix_param[3]:punctuator("]") then
+						table.insert(operands, {
+							type = "[imm]",
+							value = ix_param[2].parsed,
+							token = ix_param[2]
+						})
+
+					elseif #ix_param == 5
+					   and ix_param[1]:punctuator("[")
+					   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register"
+					   and ix_param[3]:punctuator("+")
+					   and ix_param[4]:punctuator("+")
+					   and ix_param[5]:punctuator("]") then
+						table.insert(operands, {
+							type = "[reg++]",
+							value = ix_param[2].entity.offset
+						})
+
+					elseif #ix_param == 5
+					   and ix_param[1]:punctuator("[")
+					   and ix_param[2]:punctuator("-")
+					   and ix_param[3]:punctuator("-")
+					   and ix_param[4]:is("entity") and ix_param[4].entity.type == "register"
+					   and ix_param[5]:punctuator("]") then
+						table.insert(operands, {
+							type = "[--reg]",
+							value = ix_param[4].entity.offset
+						})
+					   
+					else
+						if ix_param[1] then
+							ix_param[1]:blamef(printf.err, "operand format not recognised")
+						else
+							ix_param.before:blamef_after(printf.err, "operand format not recognised")
+						end
+						return false
+
+					end
+				end
+
+				local opcode
+				local max_score = -math.huge
+				local warnings_emitted
+				for _, ix_operand_mode in ipairs(operand_modes) do
+					local class, takes, check12, check13, code = unpack(ix_operand_mode)
+					code = code + mnemonic_to_class_code[mnemonic_token.value].code
+					local score = 0
+					local warnings = {}
+					local check123 = {}
+					local viable = true
+					if class ~= mnemonic_to_class_code[mnemonic_token.value].class then
+						viable = false
+					end
+					if viable then
+						if #takes ~= #operands then
+							viable = false
+						end
+					end
+					if viable then
+						for ix, ix_takes in ipairs(takes) do
+							if ix_takes[1] == "creg" and operands[ix].type == "reg" then
+								local creg = operands[ix].value
+								if ix_takes[2] ~= -1 then
+									code = code + creg * 2 ^ ix_takes[2]
+								end
+								table.insert(check123, ("creg %i"):format(creg))
+
+							elseif ix_takes[1] == "creg" and operands[ix].type == "[reg]" then
+								local creg = 0x08 + operands[ix].value
+								if ix_takes[2] ~= -1 then
+									code = code + creg * 2 ^ ix_takes[2]
+								end
+								table.insert(check123, ("creg %i"):format(creg))
+
+							elseif ix_takes[1] == "creg" and operands[ix].type == "[reg++]" then
+								local creg = 0x10 + operands[ix].value
+								if ix_takes[2] ~= -1 then
+									code = code + creg * 2 ^ ix_takes[2]
+								end
+								table.insert(check123, ("creg %i"):format(creg))
+
+							elseif ix_takes[1] == "creg" and operands[ix].type == "[--reg]" then
+								local creg = 0x18 + operands[ix].value
+								if ix_takes[2] ~= -1 then
+									code = code + creg * 2 ^ ix_takes[2]
+								end
+								table.insert(check123, ("creg %i"):format(creg))
+
+							elseif ix_takes[1] == "creg" and operands[ix].type == "[sp+s5]" then
+								local creg = 0x20 + operands[ix].value
+								if ix_takes[2] ~= -1 then
+									code = code + creg * 2 ^ ix_takes[2]
+								end
+								table.insert(check123, ("creg %i"):format(creg))
+
+							elseif ix_takes[1] == "creg" and operands[ix].type == "lo" then
+								local creg = 0x0F
+								if ix_takes[2] ~= -1 then
+									code = code + creg * 2 ^ ix_takes[2]
+								end
+								table.insert(check123, ("creg %i"):format(creg))
+
+							elseif (ix_takes[1] == "imm" and operands[ix].type == "imm") or
+							       (ix_takes[1] == "[imm]" and operands[ix].type == "[imm]") then
+								local imm = operands[ix].value
+								local trunc = 2 ^ ix_takes[2]
+								if imm >= trunc then
+									imm = imm % trunc
+									table.insert(warnings, { operands[ix].token, "number truncated to %i bits", ix_takes[2] })
+									score = score - 1
+								end
+								if ix_takes[3] ~= -1 then
+									code = code + imm * 2 ^ ix_takes[3]
+								end
+								table.insert(check123, ("imm %i"):format(imm))
+
+							elseif ix_takes[1] == "immsx" and operands[ix].type == "imm" then
+								local imm = operands[ix].value
+								local trunc = 2 ^ (ix_takes[2] + 1)
+								if imm >= trunc then
+									imm = imm % trunc
+									table.insert(warnings, { operands[ix].token, "number truncated to %i bits", ix_takes[2] })
+									score = score - 1
+								end
+								local sign = math.floor(imm / 2 ^ ix_takes[2])
+								imm = imm % 2 ^ ix_takes[2]
+								if ix_takes[3] ~= -1 then
+									code = code + imm * 2 ^ ix_takes[3] + sign * 2 ^ ix_takes[4]
+								end
+								table.insert(check123, ("immsx %i %i"):format(imm, sign))
+
+							else
+								viable = false
+
+							end
+						end
+					end
+					if viable and check12 and check123[1] ~= check123[2] then
+						viable = false
+					end
+					if viable and check13 and check123[1] ~= check123[3] then
+						viable = false
+					end
+					if viable and max_score < score then
+						max_score = score
+						warnings_emitted = warnings
+						opcode = code
+					end
+				end
+
+				if not opcode then
+					local operands_repr = {}
+					for _, ix_oper in ipairs(operands) do
+						table.insert(operands_repr, ix_oper.type)
+					end
+					mnemonic_token:blamef(printf.err, "no variant of %s exists that takes '%s' operands", mnemonic_token.value, table.concat(operands_repr, ", "))
+					return false
+				end
+				for _, ix_warning in ipairs(warnings_emitted) do
+					ix_warning[1]:blamef(printf.warn, unpack(ix_warning, 2))
+				end
+				return true, { opcode }
+			end
+			for mnemonic in pairs(mnemonic_to_class_code) do
+				ARCH_R3.mnemonics[mnemonic] = mnemonic_desc
+			end
+		end
+		ARCHITECTURES["r3"] = ARCH_R3
+	end
+
 	local named_args = {}
 	local unnamed_args = {}
 	if #args == 1 and type(args[1]) == "table" then
@@ -125,6 +508,17 @@ xpcall(function()
 				table.insert(unnamed_args, arg)
 			end
 		end
+	end
+
+	local model_name = named_args.model or unnamed_args[4]
+	if not model_name then
+		failf("failed to detect model and no model name was passed")
+	end
+	local architecture
+	if model_name == "r3" then
+		architecture = ARCHITECTURES["r3"]
+	else
+		failf("no architecture description for model '%s'", model_name)
 	end
 
 	if named_args.silent then
@@ -227,384 +621,6 @@ xpcall(function()
 				curr = curr * 2
 			end
 			return out
-		end
-	end
-
-	local builtin_includes = {
-		["r3"] = ([==[
-			%define dw `DW'
-			%define org `ORG'
-
-			%define fl 0x0708
-			%define pc 0x0709
-			%define _loopcontrolbase 0x070C
-			%eval lc _loopcontrolbase 0 +
-			%eval lf _loopcontrolbase 1 +
-			%eval lt _loopcontrolbase 2 +
-			%define wm 0x070F
-
-			%macro push Thing
-				mov [--sp], Thing
-			%endmacro
-
-			%macro pop Thing
-				mov Thing, [sp++]
-			%endmacro
-		]==]):gsub("`([A-Z]+)'", function(cap)
-			return RESERVED[cap]
-		end)
-		--[[
-			%macro _loop_internal Reg, Count, Done, Loop
-				mov Reg, _loopcontrolbase
-				mov [Reg++], Count
-				mov [Reg++], Done
-				mov [Reg++], Loop
-			%endmacro
-
-			%macro loop Count, Done, Reg
-			`PEERLABEL' . `MACROUNIQUE' begin:
-				_loop_internal Reg, Count, Done, `PEERLABEL' `MACROUNIQUE' loop_until
-			`PEERLABEL' `MACROUNIQUE' loop_until:
-			`SUPERLABEL' `LABELCONTEXT':
-			%endmacro
-		--]] -- LOOPCONTROL
-	}
-
-	local builtin_freebits = 29
-	local builtin_nop = 0x20000000
-	local builtin_entities = {
-		["r0"] = { type = "register", offset = 0 },
-		["r1"] = { type = "register", offset = 1 },
-		["r2"] = { type = "register", offset = 2 },
-		["r3"] = { type = "register", offset = 3 },
-		["r4"] = { type = "register", offset = 4 },
-		["r5"] = { type = "register", offset = 5 },
-		["r6"] = { type = "register", offset = 6 },
-		["r7"] = { type = "register", offset = 7 },
-		["sp"] = { type = "register", offset = 7 },
-		["lo"] = { type = "last_output" },
-	}
-	local builtin_mnemonics = {}
-	do
-		local mnemonic_to_class_code = {
-			[ "nop"] = { class = "nop", code = 0x20000000 },
-			[ "mov"] = { class =  "02", code = 0x20000000 },
-			["call"] = { class =   "2", code = 0x211F0000 },
-			[  "jn"] = { class =   "2", code = 0x22000000 },
-			[ "jmp"] = { class =   "2", code = 0x22010000 },
-			[ "ret"] = { class = "nop", code = 0x22011700 },
-			[ "jnb"] = { class =   "2", code = 0x22020000 },
-			[ "jae"] = { class =   "2", code = 0x22020000 },
-			[ "jnc"] = { class =   "2", code = 0x22020000 },
-			[  "jb"] = { class =   "2", code = 0x22030000 },
-			["jnae"] = { class =   "2", code = 0x22030000 },
-			[  "jc"] = { class =   "2", code = 0x22030000 },
-			[ "jno"] = { class =   "2", code = 0x22040000 },
-			[  "jo"] = { class =   "2", code = 0x22050000 },
-			[ "jne"] = { class =   "2", code = 0x22060000 },
-			[ "jnz"] = { class =   "2", code = 0x22060000 },
-			[  "je"] = { class =   "2", code = 0x22070000 },
-			[  "jz"] = { class =   "2", code = 0x22070000 },
-			[ "jns"] = { class =   "2", code = 0x22080000 },
-			[  "js"] = { class =   "2", code = 0x22090000 },
-			[ "jnl"] = { class =   "2", code = 0x220A0000 },
-			[ "jge"] = { class =   "2", code = 0x220A0000 },
-			[  "jl"] = { class =   "2", code = 0x220B0000 },
-			["jnge"] = { class =   "2", code = 0x220B0000 },
-			["jnbe"] = { class =   "2", code = 0x220C0000 },
-			[  "ja"] = { class =   "2", code = 0x220C0000 },
-			[ "jbe"] = { class =   "2", code = 0x220D0000 },
-			[ "jna"] = { class =   "2", code = 0x220D0000 },
-			["jnle"] = { class =   "2", code = 0x220E0000 },
-			[  "jg"] = { class =   "2", code = 0x220E0000 },
-			[ "jle"] = { class =   "2", code = 0x220F0000 },
-			[ "jng"] = { class =   "2", code = 0x220F0000 },
-			[ "hlt"] = { class = "nop", code = 0x23000000 },
-			[ "bsf"] = { class =  "02", code = 0x24000000 },
-			[ "bsr"] = { class =  "02", code = 0x25000000 },
-			[ "zsf"] = { class =  "02", code = 0x26000000 },
-			[ "zsr"] = { class =  "02", code = 0x27000000 },
-			[ "xor"] = { class = "012", code = 0x28000000 },
-			[  "or"] = { class = "012", code = 0x29000000 },
-			[ "and"] = { class = "012", code = 0x2A000000 },
-			[ "add"] = { class = "012", code = 0x2C000000 },
-			[ "adc"] = { class = "012", code = 0x2D000000 },
-			[ "sub"] = { class = "012", code = 0x2E000000 },
-			[ "sbb"] = { class = "012", code = 0x2F000000 },
-			[ "mak"] = { class = "012", code = 0x30000000 },
-			[ "ext"] = { class = "012", code = 0x31000000 },
-			["mak1"] = { class = "012", code = 0x32000000 },
-			["ext1"] = { class = "012", code = 0x33000000 },
-			[ "scl"] = { class = "012", code = 0x34000000 },
-			[ "scr"] = { class = "012", code = 0x35000000 },
-			[ "rol"] = { class = "012", code = 0x36000000 },
-			[ "ror"] = { class = "012", code = 0x37000000 },
-			["op18"] = { class = "nop", code = 0x38000000 },
-			["op19"] = { class = "nop", code = 0x39000000 },
-			["test"] = { class =  "12", code = 0x3A000000 },
-			["andn"] = { class =  "12", code = 0x3B000000 },
-			["op1c"] = { class = "nop", code = 0x3C000000 },
-			["op1d"] = { class = "nop", code = 0x3D000000 },
-			[ "cmp"] = { class =  "12", code = 0x3E000000 },
-			["cmpc"] = { class =  "12", code = 0x3F000000 },
-		}
-
-		local operand_modes = {
-			{ "nop", {                                                                     }, false, false, 0x00000000 },
-			{  "02", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
-			{  "02", { { "[imm]", 13,  0 }, { "[imm]", 13,    -1 }                         },  true, false, 0x00806000 },
-			{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
-			{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }, { "[imm]", 13,    -1 } }, false,  true, 0x00806000 },
-			{ "012", { {  "creg",     16 }, { "immsx",  8, 0, 14 }, {  "creg",         8 } }, false, false, 0x00008000 },
-			{ "012", { {  "creg",     16 }, {  "creg",         8 }, { "immsx",  8, 0, 14 } }, false, false, 0x00808000 },
-			{ "012", { {  "creg",     16 }, {  "creg",         8 }, {  "creg",         0 } }, false, false, 0x00800000 },
-			{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }, {  "creg",        -1 } }, false,  true, 0x00400000 },
-			{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }, {  "creg",        -1 } }, false,  true, 0x00004000 },
-			{  "12", { {   "imm", 16,  0 }, {  "creg",        16 }                         }, false, false, 0x00400000 },
-			{  "12", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00004000 },
-			{  "02", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
-			{  "02", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
-			{  "02", { {  "creg",     16 }, {  "creg",         8 }                         }, false, false, 0x00000000 },
-			{   "2", { { "[imm]", 13,  0 }                                                 }, false, false, 0x00804000 },
-			{   "2", { {   "imm", 16,  0 }                                                 }, false, false, 0x00C00000 },
-			{   "2", { {  "creg",      8 }                                                 }, false, false, 0x00000000 },
-			{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
-			{ "012", { {  "creg",     16 }, {  "creg",        -1 }, {   "imm", 16,     0 } },  true, false, 0x00C00000 },
-			{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
-			{ "012", { {  "creg",     16 }, {  "creg",         0 }, {  "creg",         8 } }, false, false, 0x00000000 },
-			{  "12", { {  "creg",      0 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
-			{  "12", { {  "creg",      0 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
-			{  "12", { {  "creg",      0 }, {  "creg",         8 }                         }, false, false, 0x00000000 },
-		}
-		local mnemonic_desc = {}
-		function mnemonic_desc.length()
-			return true, 1 -- * RISC :)
-		end
-
-		function mnemonic_desc.emit(mnemonic_token, parameters)
-			local operands = {}
-			for ix, ix_param in ipairs(parameters) do
-				if #ix_param == 1
-				   and ix_param[1]:is("entity") and ix_param[1].entity.type == "last_output" then
-					table.insert(operands, {
-						type = "lo"
-					})
-
-				elseif #ix_param == 1
-				   and ix_param[1]:is("entity") and ix_param[1].entity.type == "register" then
-					table.insert(operands, {
-						type = "reg",
-						value = ix_param[1].entity.offset
-					})
-
-				elseif #ix_param == 1
-				   and ix_param[1]:number() then
-					table.insert(operands, {
-						type = "imm",
-						value = ix_param[1].parsed,
-						token = ix_param[1]
-					})
-
-				elseif #ix_param == 5
-				   and ix_param[1]:punctuator("[")
-				   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register" and ix_param[2].entity.offset == 7
-				   and ix_param[4]:number()
-				   and (
-				   		(ix_param[3]:punctuator("+") and ix_param[4].parsed <  16) or
-				   		(ix_param[3]:punctuator("-") and ix_param[4].parsed <= 16)
-				       )
-				   and ix_param[5]:punctuator("]") then
-					table.insert(operands, {
-						type = "[sp+s5]",
-						value = ix_param[3]:punctuator("-") and (0x20 - ix_param[4].parsed) or ix_param[4].parsed
-					})
-
-				elseif #ix_param == 3
-				   and ix_param[1]:punctuator("[")
-				   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register" and ix_param[2].entity.offset == 7
-				   and ix_param[3]:punctuator("]") then
-					table.insert(operands, {
-						type = "[sp+s5]",
-						value = 0
-					})
-
-				elseif #ix_param == 3
-				   and ix_param[1]:punctuator("[")
-				   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register"
-				   and ix_param[3]:punctuator("]") then
-					table.insert(operands, {
-						type = "[reg]",
-						value = ix_param[2].entity.offset
-					})
-
-				elseif #ix_param == 3
-				   and ix_param[1]:punctuator("[")
-				   and ix_param[2]:number()
-				   and ix_param[3]:punctuator("]") then
-					table.insert(operands, {
-						type = "[imm]",
-						value = ix_param[2].parsed,
-						token = ix_param[2]
-					})
-
-				elseif #ix_param == 5
-				   and ix_param[1]:punctuator("[")
-				   and ix_param[2]:is("entity") and ix_param[2].entity.type == "register"
-				   and ix_param[3]:punctuator("+")
-				   and ix_param[4]:punctuator("+")
-				   and ix_param[5]:punctuator("]") then
-					table.insert(operands, {
-						type = "[reg++]",
-						value = ix_param[2].entity.offset
-					})
-
-				elseif #ix_param == 5
-				   and ix_param[1]:punctuator("[")
-				   and ix_param[2]:punctuator("-")
-				   and ix_param[3]:punctuator("-")
-				   and ix_param[4]:is("entity") and ix_param[4].entity.type == "register"
-				   and ix_param[5]:punctuator("]") then
-					table.insert(operands, {
-						type = "[--reg]",
-						value = ix_param[4].entity.offset
-					})
-				   
-				else
-					if ix_param[1] then
-						ix_param[1]:blamef(printf.err, "operand format not recognised")
-					else
-						ix_param.before:blamef_after(printf.err, "operand format not recognised")
-					end
-					return false
-
-				end
-			end
-
-			local opcode
-			local max_score = -math.huge
-			local warnings_emitted
-			for _, ix_operand_mode in ipairs(operand_modes) do
-				local class, takes, check12, check13, code = unpack(ix_operand_mode)
-				code = code + mnemonic_to_class_code[mnemonic_token.value].code
-				local score = 0
-				local warnings = {}
-				local check123 = {}
-				local viable = true
-				if class ~= mnemonic_to_class_code[mnemonic_token.value].class then
-					viable = false
-				end
-				if viable then
-					if #takes ~= #operands then
-						viable = false
-					end
-				end
-				if viable then
-					for ix, ix_takes in ipairs(takes) do
-						if ix_takes[1] == "creg" and operands[ix].type == "reg" then
-							local creg = operands[ix].value
-							if ix_takes[2] ~= -1 then
-								code = code + creg * 2 ^ ix_takes[2]
-							end
-							table.insert(check123, ("creg %i"):format(creg))
-
-						elseif ix_takes[1] == "creg" and operands[ix].type == "[reg]" then
-							local creg = 0x08 + operands[ix].value
-							if ix_takes[2] ~= -1 then
-								code = code + creg * 2 ^ ix_takes[2]
-							end
-							table.insert(check123, ("creg %i"):format(creg))
-
-						elseif ix_takes[1] == "creg" and operands[ix].type == "[reg++]" then
-							local creg = 0x10 + operands[ix].value
-							if ix_takes[2] ~= -1 then
-								code = code + creg * 2 ^ ix_takes[2]
-							end
-							table.insert(check123, ("creg %i"):format(creg))
-
-						elseif ix_takes[1] == "creg" and operands[ix].type == "[--reg]" then
-							local creg = 0x18 + operands[ix].value
-							if ix_takes[2] ~= -1 then
-								code = code + creg * 2 ^ ix_takes[2]
-							end
-							table.insert(check123, ("creg %i"):format(creg))
-
-						elseif ix_takes[1] == "creg" and operands[ix].type == "[sp+s5]" then
-							local creg = 0x20 + operands[ix].value
-							if ix_takes[2] ~= -1 then
-								code = code + creg * 2 ^ ix_takes[2]
-							end
-							table.insert(check123, ("creg %i"):format(creg))
-
-						elseif ix_takes[1] == "creg" and operands[ix].type == "lo" then
-							local creg = 0x0F
-							if ix_takes[2] ~= -1 then
-								code = code + creg * 2 ^ ix_takes[2]
-							end
-							table.insert(check123, ("creg %i"):format(creg))
-
-						elseif (ix_takes[1] == "imm" and operands[ix].type == "imm") or
-						       (ix_takes[1] == "[imm]" and operands[ix].type == "[imm]") then
-							local imm = operands[ix].value
-							local trunc = 2 ^ ix_takes[2]
-							if imm >= trunc then
-								imm = imm % trunc
-								table.insert(warnings, { operands[ix].token, "number truncated to %i bits", ix_takes[2] })
-								score = score - 1
-							end
-							if ix_takes[3] ~= -1 then
-								code = code + imm * 2 ^ ix_takes[3]
-							end
-							table.insert(check123, ("imm %i"):format(imm))
-
-						elseif ix_takes[1] == "immsx" and operands[ix].type == "imm" then
-							local imm = operands[ix].value
-							local trunc = 2 ^ (ix_takes[2] + 1)
-							if imm >= trunc then
-								imm = imm % trunc
-								table.insert(warnings, { operands[ix].token, "number truncated to %i bits", ix_takes[2] })
-								score = score - 1
-							end
-							local sign = math.floor(imm / 2 ^ ix_takes[2])
-							imm = imm % 2 ^ ix_takes[2]
-							if ix_takes[3] ~= -1 then
-								code = code + imm * 2 ^ ix_takes[3] + sign * 2 ^ ix_takes[4]
-							end
-							table.insert(check123, ("immsx %i %i"):format(imm, sign))
-
-						else
-							viable = false
-
-						end
-					end
-				end
-				if viable and check12 and check123[1] ~= check123[2] then
-					viable = false
-				end
-				if viable and check13 and check123[1] ~= check123[3] then
-					viable = false
-				end
-				if viable and max_score < score then
-					max_score = score
-					warnings_emitted = warnings
-					opcode = code
-				end
-			end
-
-			if not opcode then
-				local operands_repr = {}
-				for _, ix_oper in ipairs(operands) do
-					table.insert(operands_repr, ix_oper.type)
-				end
-				mnemonic_token:blamef(printf.err, "no variant of %s exists that takes '%s' operands", mnemonic_token.value, table.concat(operands_repr, ", "))
-				return false
-			end
-			for _, ix_warning in ipairs(warnings_emitted) do
-				ix_warning[1]:blamef(printf.warn, unpack(ix_warning, 2))
-			end
-			return true, { opcode }
-		end
-		for mnemonic in pairs(mnemonic_to_class_code) do
-			builtin_mnemonics[mnemonic] = mnemonic_desc
 		end
 	end
 
@@ -1174,7 +1190,7 @@ xpcall(function()
 					preprocess_fail()
 				end
 				local path = relative_path
-				local content = builtin_includes[relative_path]
+				local content = architecture.includes[relative_path]
 				if not content then
 					path = base_path and resolve_relative(base_path, relative_path) or relative_path
 					local handle = io.open(path, "r")
@@ -1593,15 +1609,15 @@ xpcall(function()
 				end
 				if ix_param[1]:number() then
 					local number = ix_param[1].parsed
-					if number >= 2 ^ builtin_freebits then
-						number = number % 2 ^ builtin_freebits
-						ix_param[1]:blamef(printf.warn, "number truncated to %i bits", builtin_freebits)
+					if number >= 2 ^ architecture.freebits then
+						number = number % 2 ^ architecture.freebits
+						ix_param[1]:blamef(printf.warn, "number truncated to %i bits", architecture.freebits)
 					end
-					emit_raw(ix_param[1], { builtin_nop + number })
+					emit_raw(ix_param[1], { architecture.nop + number })
 				elseif ix_param[1]:stringlit() then
 					local values = {}
 					for ch in ix_param[1].value:gsub("^\"(.*)\"$", "%1"):gmatch(".") do
-						table.insert(values, builtin_nop + ch:byte())
+						table.insert(values, architecture.nop + ch:byte())
 					end
 					emit_raw(ix_param[1], values)
 				else
@@ -1613,10 +1629,10 @@ xpcall(function()
 		end
 
 		local known_identifiers = {}
-		for key in pairs(builtin_entities) do
+		for key in pairs(architecture.entities) do
 			known_identifiers[key] = true
 		end
-		for key in pairs(builtin_mnemonics) do
+		for key in pairs(architecture.mnemonics) do
 			known_identifiers[key] = true
 		end
 		for key in pairs(hooks) do
@@ -1652,18 +1668,18 @@ xpcall(function()
 							cursor = cursor - 1
 						end
 
-					elseif tokens[cursor]:identifier() and builtin_entities[tokens[cursor].value] then
+					elseif tokens[cursor]:identifier() and architecture.entities[tokens[cursor].value] then
 						tokens[cursor] = tokens[cursor]:point({
 							type = "entity",
 							value = tokens[cursor].value,
-							entity = builtin_entities[tokens[cursor].value]
+							entity = architecture.entities[tokens[cursor].value]
 						})
 
-					elseif tokens[cursor]:identifier() and builtin_mnemonics[tokens[cursor].value] then
+					elseif tokens[cursor]:identifier() and architecture.mnemonics[tokens[cursor].value] then
 						tokens[cursor] = tokens[cursor]:point({
 							type = "mnemonic",
 							value = tokens[cursor].value,
-							mnemonic = builtin_mnemonics[tokens[cursor].value]
+							mnemonic = architecture.mnemonics[tokens[cursor].value]
 						})
 
 					elseif tokens[cursor]:identifier() and hooks[tokens[cursor].value] then
@@ -1894,7 +1910,7 @@ xpcall(function()
 					end
 				end
 				for ix = 0, max_pointer - 1 do
-					opcodes[ix] = builtin_nop
+					opcodes[ix] = architecture.nop
 				end
 			end
 			for offset, rec in pairs(to_emit) do
