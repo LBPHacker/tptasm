@@ -63,24 +63,26 @@ do
 		printf.err_called = true
 	end
 	function printf.redirect(log_path)
-		local handle = io.open(log_path, "w")
+		local handle = type(log_path) == "string" and io.open(log_path, "w") or log_path
 		if handle then
 			printf.log_path = log_path
 			printf.log_handle = handle
-			printf.info("redirecting log to '%s'", printf.log_path)
+			printf.info("redirecting log to '%s'", tostring(log_path))
 			printf.print = function(str)
 				printf.log_handle:write(str .. "\n")
 			end
 		else
-			printf.warn("failed to open '%s' for writing, log not redirected", log_path)
+			printf.warn("failed to open '%s' for writing, log not redirected", tostring(printf.log_path))
 		end
 	end
 	function printf.unredirect()
 		if printf.log_handle then
-			printf.log_handle:close()
+			if type(printf.log_path) == "string" then
+				printf.log_handle:close()
+			end
 			printf.log_handle = false
 			printf.print = printf.print_old
-			printf.info("closed log '%s'", printf.log_path)
+			printf.info("undoing redirection of log to '%s'", tostring(printf.log_path))
 		end
 	end
 	function printf.update_colour()
@@ -1174,7 +1176,7 @@ xpcall(function()
 				local path = relative_path
 				local content = builtin_includes[relative_path]
 				if not content then
-					path = resolve_relative(base_path, relative_path)
+					path = base_path and resolve_relative(base_path, relative_path) or relative_path
 					local handle = io.open(path, "r")
 					if not handle then
 						req:blamef(printf.err, "failed to open '%s' for reading", path)
@@ -1472,7 +1474,7 @@ xpcall(function()
 				end
 			end
 
-			include("_", path, lines, { blamef = function(self, report, ...)
+			include(false, path, lines, { blamef = function(self, report, ...)
 				report(...)
 			end })
 			if #condition_stack > 1 then
