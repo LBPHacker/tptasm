@@ -56,13 +56,13 @@ do
 		printf((printf.colour and "[r3asm] " or "[r3asm] [DD] ") .. "[%s] %s", from, table.concat(things, "\t"))
 	end
 	function printf.info(format, ...)
-		printf((printf.colour and "\008l[r3asm]\008w " or "[r3asm] [II] ") .. format, ...)
+		printf((printf.colour and "\008t[r3asm]\008w " or "[r3asm] [II] ") .. format, ...)
 	end
 	function printf.warn(format, ...)
 		printf((printf.colour and "\008o[r3asm]\008w " or "[r3asm] [WW] ") .. format, ...)
 	end
 	function printf.err(format, ...)
-		printf((printf.colour and "\008t[r3asm]\008w " or "[r3asm] [EE] ") .. format, ...)
+		printf((printf.colour and "\008l[r3asm]\008w " or "[r3asm] [EE] ") .. format, ...)
 		printf.err_called = true
 	end
 	function printf.redirect(log_path)
@@ -246,6 +246,80 @@ xpcall(function()
 			return setmetatable({
 				dwords = dwords
 			}, opcode_mt)
+		end
+	end
+
+	local find_cpu
+	local detect_model
+	do
+		local function enumerate_cpus()
+			if not tpt then
+				printf.err("not running inside TPT, can't find target")
+				return
+			end
+			for id in sim.parts() do
+				if  sim.partProperty(id, "ctype") == 0x1864A205
+				and sim.partProperty(id, "type") == elem.DEFAULT_PT_QRTZ then
+					local x, y = sim.partPosition(id)
+					local function ctype_of(offs)
+						local cid = sim.partID(x + offs, y)
+						return cid and sim.partProperty(cid, "ctype")
+					end
+					local id_target = ctype_of(-1)
+					if id_target then
+						local offs = 0
+						local id_model = ""
+						local checksum = 0
+						local name_intact = true
+						while true do
+							offs = offs + 1
+							local ctype = ctype_of(offs)
+							if not ctype then
+								name_intact = false
+								break
+							end
+							if ctype == 0 then
+								break
+							end
+							id_model = id_model .. string.char(ctype)
+							checksum = checksum + ctype
+						end
+						if name_intact and ctype_of(offs + 1) == checksum then
+							coroutine.yield(x, y, id_model, id_target)
+						end
+					end
+				end
+			end
+		end
+
+		local function cpus()
+			local co = coroutine.create(enumerate_cpus)
+			return function()
+				if coroutine.status(co) ~= "dead" then
+					local ok, x, y, id_model, id_target = coroutine.resume(co)
+					if not ok then
+						error(x)
+					end
+					return x, y, id_model, id_target
+				end
+			end
+		end
+
+		function find_cpu(model, target)
+			for x, y, id_model, id_target in cpus() do
+				if (not target or target == id_target)
+				or (not model or model == id_model) then
+					return x, y
+				end
+			end
+		end
+
+		function detect_model(target)
+			for x, y, id_model, id_target in cpus() do
+				if not target or target == id_target then
+					return id_model
+				end
+			end
 		end
 	end
 
@@ -737,38 +811,19 @@ xpcall(function()
 				end
 			end
 			return true, { opcode }
-
-			-- set, reset, cond, target, jump(bit0)/
-			-- , constant param
-			-- nop
-			-- jts condition, target
-			-- lda
-			-- ldj condition, target
-			-- sta
-			-- stj condition, target
-			-- exa
-			-- exj condition, target
-
-			-- nop    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000000, 0x20000000
-			-- lda    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000002, 0x20000000
-			-- sta    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000004, 0x20000000
-			-- exa    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000006, 0x20000000
-			-- jmp    0x20000000, 0x20000000, 0x20000000, 0x20000000 + label, 0x20000001, 0x20000000
-			-- jts    0x20000000, 0x20000000, 0x20000000 + test, 0x20000000 + label, 0x20000001, 0x20000000
-			--    bcl 0x20000000, 0x20000000 + v, 0x20000000, 0x20000000, 0x20000000, 0x20000000
-			--    bst 0x20000000 + v, 0x20000000, 0x20000000, 0x20000000, 0x20000000, 0x20000000
-			--    bsc 0x20000000 + v, 0x20000000 + w, 0x20000000, 0x20000000, 0x20000000, 0x20000000
-			--    mov 0x20000000 + v, 0x20000000 + w, 0x20000000, 0x20000000, 0x20000000, 0x20000000
-			--    nop 0x20000000 + v, 0x20000000 + w, 0x20000000, 0x20000000, 0x20000000, 0x20000000
 		end
 		arch_b29k1qs60.mnemonics = {}
 		for key in pairs(jmem_mnemonics) do
 			arch_b29k1qs60.mnemonics[key] = mnemonic_desc
 		end
 		function arch_b29k1qs60.flash(model, target, opcodes)
-			if next(opcodes) then
-				for ix = 0, #opcodes do
-					printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
+			local x, y = find_cpu(model, target)
+			if not x then
+				return
+			end
+			for ix, ix_opcode in pairs(opcodes) do
+				for iy = 1, 6 do
+					sim.partProperty(sim.partID(x + ix, y + iy + 3), "ctype", opcodes[ix].dwords[iy])
 				end
 			end
 		end
@@ -801,6 +856,9 @@ xpcall(function()
 	end
 
 	local model_name = named_args.model or unnamed_args[4]
+	if not model_name then
+		model_name = detect_model()
+	end
 	if not model_name then
 		failf("failed to detect model and no model name was passed")
 	end
@@ -2224,6 +2282,9 @@ xpcall(function()
 		end
 	else
 		architecture.flash(model_name, target, opcodes)
+		if printf.err_called then
+			failf("flashing stage failed, bailing")
+		end
 	end
 
 end, function(err)
