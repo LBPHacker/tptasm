@@ -13,6 +13,9 @@ local RESERVED = {
 	ORG          = "_Org",
 	PEERLABEL    = "_Peerlabel",
 	SUPERLABEL   = "_Superlabel",
+	APPENDVARARG = "_Appendvararg",
+	VARARG       = "_Vararg",
+	VARARGSIZE   = "_Varargsize",
 }
 
 local tpt = tpt
@@ -246,10 +249,10 @@ xpcall(function()
 		end
 	end
 
-	local ARCHITECTURES = {}
+	local architectures = {}
 	do
-		local ARCH_R3 = {}
-		ARCH_R3.includes = {
+		local arch_r3 = {}
+		arch_r3.includes = {
 			["common"] = ([==[
 				%define dw `DW'
 				%define org `ORG'
@@ -289,9 +292,9 @@ xpcall(function()
 			--]] -- LOOPCONTROL
 		}
 
-		ARCH_R3.dw_bits = 29
-		ARCH_R3.nop = make_opcode(30):merge(0x20000000, 0)
-		ARCH_R3.entities = {
+		arch_r3.dw_bits = 29
+		arch_r3.nop = make_opcode(32):merge(0x20000000, 0)
+		arch_r3.entities = {
 			["r0"] = { type = "register", offset = 0 },
 			["r1"] = { type = "register", offset = 1 },
 			["r2"] = { type = "register", offset = 2 },
@@ -303,7 +306,7 @@ xpcall(function()
 			["sp"] = { type = "register", offset = 7 },
 			["lo"] = { type = "last_output" },
 		}
-		ARCH_R3.mnemonics = {}
+		arch_r3.mnemonics = {}
 		do
 			local mnemonic_to_class_code = {
 				[ "nop"] = { class = "nop", code = 0x20000000 },
@@ -504,7 +507,7 @@ xpcall(function()
 				local warnings_emitted
 				for _, ix_operand_mode in ipairs(operand_modes) do
 					local class, takes, check12, check13, code_raw = unpack(ix_operand_mode)
-					local code = ARCH_R3.nop:clone():merge(code_raw, 0):merge(mnemonic_to_class_code[mnemonic_token.value].code, 0)
+					local code = arch_r3.nop:clone():merge(code_raw, 0):merge(mnemonic_to_class_code[mnemonic_token.value].code, 0)
 					local score = 0
 					local warnings = {}
 					local check123 = {}
@@ -624,21 +627,152 @@ xpcall(function()
 				return true, { opcode }
 			end
 			for mnemonic in pairs(mnemonic_to_class_code) do
-				ARCH_R3.mnemonics[mnemonic] = mnemonic_desc
+				arch_r3.mnemonics[mnemonic] = mnemonic_desc
 			end
 		end
-		function ARCH_R3.flash(model, target, opcodes)
+		function arch_r3.flash(model, target, opcodes)
 			if next(opcodes) then
 				for ix = 0, #opcodes do
 					printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
 				end
 			end
 		end
-		ARCHITECTURES["R3"] = ARCH_R3
+		architectures["R3"] = arch_r3
 	end
 	do
-		local ARCH_B29K1QS60 = {}
-		ARCHITECTURES["B29K1QS60"] = ARCH_B29K1QS60
+		local arch_b29k1qs60 = {}
+		arch_b29k1qs60.includes = {
+			["common"] = ([==[
+			]==]):gsub("`([A-Z]+)'", function(cap)
+				return RESERVED[cap]
+			end)
+		}
+		arch_b29k1qs60.dw_bits = 29 -- * TODO: figure out how dw even works here
+		arch_b29k1qs60.nop = make_opcode(192)
+			:merge(0x20000000,   0)
+			:merge(0x20000000,  32)
+			:merge(0x20000000,  64)
+			:merge(0x20000000,  96)
+			:merge(0x20000000, 128)
+			:merge(0x20000000, 160)
+		arch_b29k1qs60.entities = {}
+		local jmem_mnemonics = {
+			["mvaz"] = { code = 0x20000000, jump = false, mask = false },
+			["mvjz"] = { code = 0x20000001, jump =  true, mask = false },
+			["ldaz"] = { code = 0x20000002, jump = false, mask =  true },
+			["ldjz"] = { code = 0x20000003, jump =  true, mask =  true },
+			["staz"] = { code = 0x20000004, jump = false, mask = false },
+			["stjz"] = { code = 0x20000005, jump =  true, mask = false },
+			["exaz"] = { code = 0x20000006, jump = false, mask = false },
+			["exjz"] = { code = 0x20000007, jump =  true, mask = false },
+		}
+		local mnemonic_desc = {}
+		function mnemonic_desc.length()
+			return true, 1 -- * RISC :)
+		end
+		function mnemonic_desc.emit(mnemonic_token, parameters)
+			local parameter_ix = 0
+			local function take_parameter(role)
+				parameter_ix = parameter_ix + 1
+				if not parameters[parameter_ix] then
+					mnemonic_token:blamef(printf.err, "%s not specified", role)
+					return false
+				end
+				local parameter = parameters[parameter_ix]
+				if #parameter < 1 then
+					parameter.before:blamef(printf.err, "no tokens in %s", role)
+					return false
+				end
+				if #parameter > 1 then
+					parameter[2]:blamef(printf.err, "excess tokens in %s", role)
+					return false
+				end
+				if not parameter[1]:number() then
+					parameter[1]:blamef(printf.err, "%s is not a number", role)
+					return false
+				end
+				return parameter[1].parsed
+			end
+
+			local opcode = arch_b29k1qs60.nop:clone()
+			local instr_desc = jmem_mnemonics[mnemonic_token.value]
+			opcode:merge(instr_desc.code, 128)
+			do
+				local set = take_parameter("bits to set")
+				if not set then
+					return false
+				end
+				opcode:merge(set, 0)
+			end
+			do
+				local reset = take_parameter("bits to reset")
+				if not reset then
+					return false
+				end
+				opcode:merge(reset, 32)
+			end
+			if instr_desc.jump then
+				do
+					local condition = take_parameter("jump condition")
+					if not condition then
+						return false
+					end
+					opcode:merge(condition, 64)
+				end
+				do
+					local target = take_parameter("jump target")
+					if not target then
+						return false
+					end
+					opcode:merge(target, 96)
+				end
+			end
+			if instr_desc.mask and not instr_desc.jump then
+				do
+					local mask = take_parameter("read mask")
+					if not mask then
+						return false
+					end
+					opcode:merge(mask, 64)
+				end
+			end
+			return true, { opcode }
+
+			-- set, reset, cond, target, jump(bit0)/
+			-- , constant param
+			-- nop
+			-- jts condition, target
+			-- lda
+			-- ldj condition, target
+			-- sta
+			-- stj condition, target
+			-- exa
+			-- exj condition, target
+
+			-- nop    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000000, 0x20000000
+			-- lda    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000002, 0x20000000
+			-- sta    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000004, 0x20000000
+			-- exa    0x20000000 + setv, 0x20000000 + unsetv, 0x20000000, 0x20000000, 0x20000006, 0x20000000
+			-- jmp    0x20000000, 0x20000000, 0x20000000, 0x20000000 + label, 0x20000001, 0x20000000
+			-- jts    0x20000000, 0x20000000, 0x20000000 + test, 0x20000000 + label, 0x20000001, 0x20000000
+			--    bcl 0x20000000, 0x20000000 + v, 0x20000000, 0x20000000, 0x20000000, 0x20000000
+			--    bst 0x20000000 + v, 0x20000000, 0x20000000, 0x20000000, 0x20000000, 0x20000000
+			--    bsc 0x20000000 + v, 0x20000000 + w, 0x20000000, 0x20000000, 0x20000000, 0x20000000
+			--    mov 0x20000000 + v, 0x20000000 + w, 0x20000000, 0x20000000, 0x20000000, 0x20000000
+			--    nop 0x20000000 + v, 0x20000000 + w, 0x20000000, 0x20000000, 0x20000000, 0x20000000
+		end
+		arch_b29k1qs60.mnemonics = {}
+		for key in pairs(jmem_mnemonics) do
+			arch_b29k1qs60.mnemonics[key] = mnemonic_desc
+		end
+		function arch_b29k1qs60.flash(model, target, opcodes)
+			if next(opcodes) then
+				for ix = 0, #opcodes do
+					printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
+				end
+			end
+		end
+		architectures["B29K1QS60"] = arch_b29k1qs60
 	end
 
 	local named_args = {}
@@ -671,10 +805,17 @@ xpcall(function()
 		failf("failed to detect model and no model name was passed")
 	end
 	local architecture
+	-- * This is not a simple table lookup because multiple models may map
+	--   to the same architecture description.
 	if model_name == "R3" then
-		architecture = ARCHITECTURES["R3"]
+		architecture = architectures["R3"]
+
+	elseif model_name == "B29K1QS60" then
+		architecture = architectures["B29K1QS60"]
+
 	else
 		failf("no architecture description for model '%s'", model_name)
+
 	end
 
 	if named_args.silent then
@@ -1037,8 +1178,8 @@ xpcall(function()
 						for pos, ch in known_operator:gmatch("()(.)") do
 							local relative = cursor + pos - 1
 							if (relative > last)
-							or (pos < #known_operator and not tokens[cursor].whitespace_follows)
-							or (not tokens[cursor]:punctuator(ch)) then
+							or (pos < #known_operator and tokens[relative].whitespace_follows)
+							or (not tokens[relative]:punctuator(ch)) then
 								matches = false
 								break
 							end
@@ -1103,7 +1244,7 @@ xpcall(function()
 			self:dump_itop()
 		end
 
-		local macro_invocation_Macrounique = 0
+		local macro_invocation_counter = 0
 		function preprocess(path)
 			local lines = {}
 			local include_top = false
@@ -1167,15 +1308,48 @@ xpcall(function()
 					for ix, ix_param in ipairs(parameter_list) do
 						parameters_passed[macro.params[ix] or false] = ix_param
 					end
-					if #macro.params ~= #parameter_list then
-						expanded[1]:blamef(printf.err, "macro '%s' invoked with %i parameters, expects %i", expanded[1].value, #parameter_list, #macro.params)
-						preprocess_fail()
+					if macro.vararg then
+						if #macro.params > #parameter_list then
+							expanded[1]:blamef(printf.err, "macro '%s' invoked with %i parameters, expects at least %i", expanded[1].value, #parameter_list, #macro.params)
+							preprocess_fail()
+						end
+					else
+						if #macro.params ~= #parameter_list then
+							expanded[1]:blamef(printf.err, "macro '%s' invoked with %i parameters, expects %i", expanded[1].value, #parameter_list, #macro.params)
+							preprocess_fail()
+						end
 					end
-					macro_invocation_Macrounique = macro_invocation_Macrounique + 1
+					macro_invocation_counter = macro_invocation_counter + 1
 					parameters_passed[RESERVED.MACROUNIQUE] = { expanded[1]:point({
 						type = "identifier",
-						value = ("_%i_"):format(macro_invocation_Macrounique)
+						value = ("_%i_"):format(macro_invocation_counter)
 					}) }
+					if macro.vararg then
+						local vararg_param = {}
+						local appendvararg_param = {}
+						if #parameter_list > #macro.params then
+							table.insert(appendvararg_param, expanded[1]:point({
+								type = "punctuator",
+								value = ","
+							}))
+						end
+						for ix = #macro.params + 1, #parameter_list do
+							for _, ix_token in ipairs(parameter_list[ix]) do
+								table.insert(vararg_param, ix_token)
+								table.insert(appendvararg_param, ix_token)
+							end
+							if ix ~= #parameter_list then
+								table.insert(vararg_param, parameter_list[ix + 1].before)
+								table.insert(appendvararg_param, parameter_list[ix + 1].before)
+							end
+						end
+						parameters_passed[RESERVED.VARARG] = vararg_param
+						parameters_passed[RESERVED.APPENDVARARG] = appendvararg_param
+						parameters_passed[RESERVED.VARARGSIZE] = { expanded[1]:point({
+							type = "number",
+							value = tostring(#parameter_list - #macro.params)
+						}) }
+					end
 					local old_aliases = {}
 					for param, value in pairs(parameters_passed) do
 						old_aliases[param] = aliases[param]
@@ -1205,7 +1379,15 @@ xpcall(function()
 				end
 				local params = {}
 				local params_assoc = {}
+				local vararg = false
 				for ix = first, last, 2 do
+					if  ix + 2 == last
+					and tokens[ix    ]:punctuator(".") and not tokens[ix    ].whitespace_follows
+					and tokens[ix + 1]:punctuator(".") and not tokens[ix + 1].whitespace_follows
+					and tokens[ix + 2]:punctuator(".") then
+						vararg = true
+						break
+					end
 					if not tokens[ix]:identifier() then
 						tokens[ix]:blamef(printf.err, "expected parameter name")
 						preprocess_fail()
@@ -1226,7 +1408,8 @@ xpcall(function()
 				end
 				defining_macro = {
 					params = params,
-					name = identifier.value
+					name = identifier.value,
+					vararg = vararg
 				}
 			end
 			local function endmacro()
@@ -1663,6 +1846,8 @@ xpcall(function()
 			return true
 		end
 		hooks[RESERVED.DW] = function(hook_token, parameters)
+			-- * TODO: allow higher shifts, currently dw constants are truncated
+			--         to 32 bits. not sure how to get around this
 			for _, ix_param in ipairs(parameters) do
 				if #ix_param < 1 then
 					ix_param.before:blamef_after(printf.err, "no tokens")
