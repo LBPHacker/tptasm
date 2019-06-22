@@ -102,11 +102,155 @@ end
 local args = { ... }
 xpcall(function()
 
+	local bit32_lshift
+	local bit32_rshift
+	local bit32_xor
+	local bit32_sub
+	local bit32_add
+	local bit32_div
+	local bit32_mod
+	local bit32_mul
+	local bit32_and
+	local bit32_or
+	local bit32_xor
+	do
+		function bit32_lshift(a, b)
+			if b >= 32 then
+				return 0
+			end
+			return bit32_mul(a, 2 ^ b)
+		end
+		function bit32_rshift(a, b)
+			if b >= 32 then
+				return 0
+			end
+			return bit32_div(a, 2 ^ b)
+		end
+		function bit32_sub(a, b)
+			local s = a - b
+			if s < 0 then
+				s = s + 0x100000000
+			end
+			return s
+		end
+		function bit32_add(a, b)
+			local s = a + b
+			if s >= 0x100000000 then
+				s = s - 0x100000000
+			end
+			return s
+		end
+		local function divmod(a, b)
+			local quo = math.floor(a / b)
+			return quo, a - quo * b
+		end
+		function bit32_div(a, b)
+			local quo, rem = divmod(a, b)
+			return quo
+		end
+		function bit32_mod(a, b)
+			local quo, rem = divmod(a, b)
+			return rem
+		end
+		function bit32_mul(a, b)
+			local ll = bit32_and(a, 0xFFFF) * bit32_and(b, 0xFFFF)
+			local lh = bit32_and(bit32_and(a, 0xFFFF) * math.floor(b / 0x10000), 0xFFFF)
+			local hl = bit32_and(math.floor(a / 0x10000) * bit32_and(b, 0xFFFF), 0xFFFF)
+			return bit32_add(bit32_add(ll, lh * 0x10000), hl * 0x10000)
+		end
+		local function hasbit(a, b)
+			return a % (b + b) >= b
+		end
+		function bit32_and(a, b)
+			local curr = 1
+			local out = 0
+			for ix = 0, 31 do
+				if hasbit(a, curr) and hasbit(b, curr) then
+					out = out + curr
+				end
+				curr = curr * 2
+			end
+			return out
+		end
+		function bit32_or(a, b)
+			local curr = 1
+			local out = 0
+			for ix = 0, 31 do
+				if hasbit(a, curr) or hasbit(b, curr) then
+					out = out + curr
+				end
+				curr = curr * 2
+			end
+			return out
+		end
+		function bit32_xor(a, b)
+			local curr = 1
+			local out = 0
+			for ix = 0, 31 do
+				if hasbit(a, curr) ~= hasbit(b, curr) then
+					out = out + curr
+				end
+				curr = curr * 2
+			end
+			return out
+		end
+	end
+
+	local make_opcode
+	do
+		local opcode_i = {}
+		local opcode_mt = { __index = opcode_i }
+		function opcode_i:clone()
+			local dwords = {}
+			for ix, ix_dword in ipairs(self.dwords) do
+				dwords[ix] = ix_dword
+			end
+			return setmetatable({
+				dwords = dwords
+			}, opcode_mt)
+		end
+		function opcode_i:dump()
+			return ("%08X "):rep(#self.dwords):format(unpack(self.dwords))
+		end
+		function opcode_i:merge(thing, shift)
+			if type(thing) == "table" then
+				for ix, ix_dword in ipairs(thing.dwords) do
+					self:merge(ix_dword, (ix - 1) * 32 + shift)
+				end
+			else
+				local offs = 1
+				while shift >= 32 do
+					offs = offs + 1
+					shift = shift - 32
+				end
+				self.dwords[offs] = bit32_or(self.dwords[offs], thing % 2 ^ (32 - shift) * 2 ^ shift)
+				thing = math.floor(thing / 2 ^ (32 - shift))
+				for ix = offs + 1, #self.dwords do
+					if thing == 0 then
+						break
+					end
+					self.dwords[ix] = bit32_or(self.dwords[ix], thing % 0x100000000)
+					thing = math.floor(thing / 0x100000000)
+				end
+			end
+			return self
+		end
+		function make_opcode(size)
+			local dwords = {}
+			for ix = 1, math.ceil(size / 32) do
+				dwords[ix] = 0
+			end
+			return setmetatable({
+				dwords = dwords
+			}, opcode_mt)
+		end
+	end
+
 	local ARCHITECTURES = {}
 	do
 		local ARCH_R3 = {}
 		ARCH_R3.includes = {
-			["r3"] = ([==[
+			["common"] = ([==[
 				%define dw `DW'
 				%define org `ORG'
 
@@ -145,8 +289,8 @@ xpcall(function()
 			--]] -- LOOPCONTROL
 		}
 
-		ARCH_R3.freebits = 29
-		ARCH_R3.nop = 0x20000000
+		ARCH_R3.dw_bits = 29
+		ARCH_R3.nop = make_opcode(30):merge(0x20000000, 0)
 		ARCH_R3.entities = {
 			["r0"] = { type = "register", offset = 0 },
 			["r1"] = { type = "register", offset = 1 },
@@ -359,8 +503,8 @@ xpcall(function()
 				local max_score = -math.huge
 				local warnings_emitted
 				for _, ix_operand_mode in ipairs(operand_modes) do
-					local class, takes, check12, check13, code = unpack(ix_operand_mode)
-					code = code + mnemonic_to_class_code[mnemonic_token.value].code
+					local class, takes, check12, check13, code_raw = unpack(ix_operand_mode)
+					local code = ARCH_R3.nop:clone():merge(code_raw, 0):merge(mnemonic_to_class_code[mnemonic_token.value].code, 0)
 					local score = 0
 					local warnings = {}
 					local check123 = {}
@@ -378,42 +522,42 @@ xpcall(function()
 							if ix_takes[1] == "creg" and operands[ix].type == "reg" then
 								local creg = operands[ix].value
 								if ix_takes[2] ~= -1 then
-									code = code + creg * 2 ^ ix_takes[2]
+									code:merge(creg, ix_takes[2])
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
 							elseif ix_takes[1] == "creg" and operands[ix].type == "[reg]" then
 								local creg = 0x08 + operands[ix].value
 								if ix_takes[2] ~= -1 then
-									code = code + creg * 2 ^ ix_takes[2]
+									code:merge(creg, ix_takes[2])
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
 							elseif ix_takes[1] == "creg" and operands[ix].type == "[reg++]" then
 								local creg = 0x10 + operands[ix].value
 								if ix_takes[2] ~= -1 then
-									code = code + creg * 2 ^ ix_takes[2]
+									code:merge(creg, ix_takes[2])
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
 							elseif ix_takes[1] == "creg" and operands[ix].type == "[--reg]" then
 								local creg = 0x18 + operands[ix].value
 								if ix_takes[2] ~= -1 then
-									code = code + creg * 2 ^ ix_takes[2]
+									code:merge(creg, ix_takes[2])
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
 							elseif ix_takes[1] == "creg" and operands[ix].type == "[sp+s5]" then
 								local creg = 0x20 + operands[ix].value
 								if ix_takes[2] ~= -1 then
-									code = code + creg * 2 ^ ix_takes[2]
+									code:merge(creg, ix_takes[2])
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
 							elseif ix_takes[1] == "creg" and operands[ix].type == "lo" then
 								local creg = 0x0F
 								if ix_takes[2] ~= -1 then
-									code = code + creg * 2 ^ ix_takes[2]
+									code:merge(creg, ix_takes[2])
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -427,7 +571,7 @@ xpcall(function()
 									score = score - 1
 								end
 								if ix_takes[3] ~= -1 then
-									code = code + imm * 2 ^ ix_takes[3]
+									code:merge(imm, ix_takes[3])
 								end
 								table.insert(check123, ("imm %i"):format(imm))
 
@@ -442,7 +586,8 @@ xpcall(function()
 								local sign = math.floor(imm / 2 ^ ix_takes[2])
 								imm = imm % 2 ^ ix_takes[2]
 								if ix_takes[3] ~= -1 then
-									code = code + imm * 2 ^ ix_takes[3] + sign * 2 ^ ix_takes[4]
+									code:merge(imm, ix_takes[3])
+									code:merge(sign, ix_takes[4])
 								end
 								table.insert(check123, ("immsx %i %i"):format(imm, sign))
 
@@ -482,7 +627,18 @@ xpcall(function()
 				ARCH_R3.mnemonics[mnemonic] = mnemonic_desc
 			end
 		end
-		ARCHITECTURES["r3"] = ARCH_R3
+		function ARCH_R3.flash(model, target, opcodes)
+			if next(opcodes) then
+				for ix = 0, #opcodes do
+					printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
+				end
+			end
+		end
+		ARCHITECTURES["R3"] = ARCH_R3
+	end
+	do
+		local ARCH_B29K1QS60 = {}
+		ARCHITECTURES["B29K1QS60"] = ARCH_B29K1QS60
 	end
 
 	local named_args = {}
@@ -515,8 +671,8 @@ xpcall(function()
 		failf("failed to detect model and no model name was passed")
 	end
 	local architecture
-	if model_name == "r3" then
-		architecture = ARCHITECTURES["r3"]
+	if model_name == "R3" then
+		architecture = ARCHITECTURES["R3"]
 	else
 		failf("no architecture description for model '%s'", model_name)
 	end
@@ -530,104 +686,12 @@ xpcall(function()
 		printf.redirect(tostring(log_path))
 	end
 
-	local bit32_lshift
-	local bit32_rshift
-	local bit32_xor
-	local bit32_sub
-	local bit32_add
-	local bit32_div
-	local bit32_mod
-	local bit32_mul
-	local bit32_and
-	local bit32_or
-	local bit32_xor
-	do
-		function bit32_lshift(a, b)
-			if b >= 32 then
-				return 0
-			end
-			return bit32_mul(a, 2 ^ b)
-		end
-		function bit32_rshift(a, b)
-			if b >= 32 then
-				return 0
-			end
-			return bit32_div(a, 2 ^ b)
-		end
-		function bit32_sub(a, b)
-			local s = a - b
-			if s < 0 then
-				s = s + 0x100000000
-			end
-			return s
-		end
-		function bit32_add(a, b)
-			local s = a + b
-			if s >= 0x100000000 then
-				s = s - 0x100000000
-			end
-			return s
-		end
-		local function divmod(a, b)
-			local quo = math.floor(a / b)
-			return quo, a - quo * b
-		end
-		function bit32_div(a, b)
-			local quo, rem = divmod(a, b)
-			return quo
-		end
-		function bit32_mod(a, b)
-			local quo, rem = divmod(a, b)
-			return rem
-		end
-		function bit32_mul(a, b)
-			local ll = bit32_and(a, 0xFFFF) * bit32_and(b, 0xFFFF)
-			local lh = bit32_and(bit32_and(a, 0xFFFF) * math.floor(b / 0x10000), 0xFFFF)
-			local hl = bit32_and(math.floor(a / 0x10000) * bit32_and(b, 0xFFFF), 0xFFFF)
-			return bit32_add(bit32_add(ll, lh * 0x10000), hl * 0x10000)
-		end
-		local function hasbit(a, b)
-			return a % (b + b) >= b
-		end
-		function bit32_and(a, b)
-			local curr = 1
-			local out = 0
-			for ix = 0, 31 do
-				if hasbit(a, curr) and hasbit(b, curr) then
-					out = out + curr
-				end
-				curr = curr * 2
-			end
-			return out
-		end
-		function bit32_or(a, b)
-			local curr = 1
-			local out = 0
-			for ix = 0, 31 do
-				if hasbit(a, curr) or hasbit(b, curr) then
-					out = out + curr
-				end
-				curr = curr * 2
-			end
-			return out
-		end
-		function bit32_xor(a, b)
-			local curr = 1
-			local out = 0
-			for ix = 0, 31 do
-				if hasbit(a, curr) ~= hasbit(b, curr) then
-					out = out + curr
-				end
-				curr = curr * 2
-			end
-			return out
-		end
-	end
-
 	local function resolve_relative(base_with_file, relative)
 		local components = {}
 		local parent_depth = 0
-		for component in (base_with_file .. "/../" .. relative):gmatch("[^/]+") do
+		-- * TODO: support more prefixes (i.e. C:, eww)
+		local prefix, concatenated_path = (base_with_file .. "/../" .. relative):match("^(/?)(.+)$")
+		for component in concatenated_path:gmatch("[^/]+") do
 			if component == ".." then
 				if #components > 0 then
 					components[#components] = nil
@@ -641,7 +705,7 @@ xpcall(function()
 		for _ = 1, parent_depth do
 			table.insert(components, 1, "..")
 		end
-		return table.concat(components, "/")
+		return prefix .. table.concat(components, "/")
 	end
 
 	local function parse_parameter_list(before, expanded, first, last)
@@ -1609,15 +1673,15 @@ xpcall(function()
 				end
 				if ix_param[1]:number() then
 					local number = ix_param[1].parsed
-					if number >= 2 ^ architecture.freebits then
-						number = number % 2 ^ architecture.freebits
-						ix_param[1]:blamef(printf.warn, "number truncated to %i bits", architecture.freebits)
+					if number >= 2 ^ architecture.dw_bits then
+						number = number % 2 ^ architecture.dw_bits
+						ix_param[1]:blamef(printf.warn, "number truncated to %i bits", architecture.dw_bits)
 					end
-					emit_raw(ix_param[1], { architecture.nop + number })
+					emit_raw(ix_param[1], { architecture.nop:clone():merge(number, 0) })
 				elseif ix_param[1]:stringlit() then
 					local values = {}
 					for ch in ix_param[1].value:gsub("^\"(.*)\"$", "%1"):gmatch(".") do
-						table.insert(values, architecture.nop + ch:byte())
+						table.insert(values, architecture.nop:clone():merge(ch:byte(), 0))
 					end
 					emit_raw(ix_param[1], values)
 				else
@@ -1910,7 +1974,7 @@ xpcall(function()
 					end
 				end
 				for ix = 0, max_pointer - 1 do
-					opcodes[ix] = architecture.nop
+					opcodes[ix] = architecture.nop:clone()
 				end
 			end
 			for offset, rec in pairs(to_emit) do
@@ -1968,22 +2032,14 @@ xpcall(function()
 	local to_emit, labels = resolve_instructions(lines)
 	local opcodes = emit_opcodes(to_emit, labels)
 
-	if next(opcodes) then
-		for ix = 0, #opcodes do
-			printf.info("OPCODE: %04X: %08X", ix, opcodes[ix])
-		end
-	end
-
 	local target = named_args.target or unnamed_args[2]
 	if type(target) == "table" then
 		for ix, ix_opcode in pairs(opcodes) do
 			target[ix] = ix_opcode
 		end
 	else
-		failf("you'll have to wait until I build the R3 for this feature to work")
+		architecture.flash(model_name, target, opcodes)
 	end
-
-	-- TODO: actually flash opcodes into FILT (prerequisite: build R3)
 
 end, function(err)
 
@@ -1992,7 +2048,7 @@ end, function(err)
 		printf.err("error: %s", tostring(err))
 		printf.info("%s", debug.traceback())
 		printf.info("this is an assembler bug, tell LBPHacker!")
-		printf.info("https://github.com/LBPHacker/R316")
+		printf.info("https://github.com/LBPHacker/tptasm")
 	end
 
 end)
