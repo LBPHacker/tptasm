@@ -53,16 +53,16 @@ do
 		for ix_thing, thing in ipairs({ ... }) do
 			table.insert(things, tostring(thing))
 		end
-		printf((printf.colour and "[r3asm] " or "[r3asm] [DD] ") .. "[%s] %s", from, table.concat(things, "\t"))
+		printf((printf.colour and "[tptasm] " or "[tptasm] [DD] ") .. "[%s] %s", from, table.concat(things, "\t"))
 	end
 	function printf.info(format, ...)
-		printf((printf.colour and "\008t[r3asm]\008w " or "[r3asm] [II] ") .. format, ...)
+		printf((printf.colour and "\008t[tptasm]\008w " or "[tptasm] [II] ") .. format, ...)
 	end
 	function printf.warn(format, ...)
-		printf((printf.colour and "\008o[r3asm]\008w " or "[r3asm] [WW] ") .. format, ...)
+		printf((printf.colour and "\008o[tptasm]\008w " or "[tptasm] [WW] ") .. format, ...)
 	end
 	function printf.err(format, ...)
-		printf((printf.colour and "\008l[r3asm]\008w " or "[r3asm] [EE] ") .. format, ...)
+		printf((printf.colour and "\008l[tptasm]\008w " or "[tptasm] [EE] ") .. format, ...)
 		printf.err_called = true
 	end
 	function printf.redirect(log_path)
@@ -705,10 +705,8 @@ xpcall(function()
 			end
 		end
 		function arch_r3.flash(model, target, opcodes)
-			if next(opcodes) then
-				for ix = 0, #opcodes do
-					printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
-				end
+			for ix = 0, #opcodes do
+				printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
 			end
 		end
 		architectures["R3"] = arch_r3
@@ -821,7 +819,12 @@ xpcall(function()
 			if not x then
 				return
 			end
-			for ix, ix_opcode in pairs(opcodes) do
+			local space_available = 0x100
+			if #opcodes >= space_available then
+				printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
+				return
+			end
+			for ix = 0, #opcodes do
 				for iy = 1, 6 do
 					sim.partProperty(sim.partID(x + ix, y + iy + 3), "ctype", opcodes[ix].dwords[iy])
 				end
