@@ -437,40 +437,38 @@ xpcall(function()
 				[ "ror"] = { class = "012", code = 0x37000000 },
 				["op18"] = { class = "nop", code = 0x38000000 },
 				["op19"] = { class = "nop", code = 0x39000000 },
-				["test"] = { class =  "12", code = 0x3A000000 },
-				["andn"] = { class =  "12", code = 0x3B000000 },
+				["test"] = { class = "012", code = 0x3A000000 },
+				["andn"] = { class = "012", code = 0x3B000000 },
 				["op1c"] = { class = "nop", code = 0x3C000000 },
 				["op1d"] = { class = "nop", code = 0x3D000000 },
-				[ "cmp"] = { class =  "12", code = 0x3E000000 },
-				["cmpc"] = { class =  "12", code = 0x3F000000 },
+				[ "cmp"] = { class = "012", code = 0x3E000000 },
+				["cmpc"] = { class = "012", code = 0x3F000000 },
 			}
 
 			local operand_modes = {
 				{ "nop", {                                                                     }, false, false, 0x00000000 },
-				{  "02", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
-				{  "02", { { "[imm]", 13,  0 }, { "[imm]", 13,    -1 }                         },  true, false, 0x00806000 },
-				{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
-				{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }, { "[imm]", 13,    -1 } }, false,  true, 0x00806000 },
-				{ "012", { {  "creg",     16 }, { "immsx",  8, 0, 14 }, {  "creg",         8 } }, false, false, 0x00008000 },
-				{ "012", { {  "creg",     16 }, {  "creg",         8 }, { "immsx",  8, 0, 14 } }, false, false, 0x00808000 },
-				{ "012", { {  "creg",     16 }, {  "creg",         8 }, {  "creg",         0 } }, false, false, 0x00800000 },
-				{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }, {  "creg",        -1 } }, false,  true, 0x00400000 },
-				{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }, {  "creg",        -1 } }, false,  true, 0x00004000 },
-				{  "12", { {   "imm", 16,  0 }, {  "creg",        16 }                         }, false, false, 0x00400000 },
-				{  "12", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00004000 },
-				{  "02", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
-				{  "02", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
-				{  "02", { {  "creg",     16 }, {  "creg",         8 }                         }, false, false, 0x00000000 },
+				{   "2", { {  "creg",      0 }                                                 }, false, false, 0x00800000 },
 				{   "2", { { "[imm]", 13,  0 }                                                 }, false, false, 0x00804000 },
 				{   "2", { {   "imm", 16,  0 }                                                 }, false, false, 0x00C00000 },
-				{   "2", { {  "creg",      8 }                                                 }, false, false, 0x00000000 },
+				{  "02", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
+				{  "02", { { "[imm]", 13,  0 }, { "[imm]", 13,    -1 }                         },  true, false, 0x00806000 },
+				{  "02", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
+				{  "02", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
+				{  "02", { {  "creg",     16 }, {  "creg",         0 }                         }, false, false, 0x00800000 },
+				{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }                         }, false, false, 0x00006000 },
+				{ "012", { { "[imm]", 13,  0 }, { "[imm]", 13,    -1 }                         },  true, false, 0x00806000 },
 				{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
-				{ "012", { {  "creg",     16 }, {  "creg",        -1 }, {   "imm", 16,     0 } },  true, false, 0x00C00000 },
 				{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
-				{ "012", { {  "creg",     16 }, {  "creg",         0 }, {  "creg",         8 } }, false, false, 0x00000000 },
-				{  "12", { {  "creg",      0 }, { "[imm]", 13,     0 }                         }, false, false, 0x00804000 },
-				{  "12", { {  "creg",      0 }, {   "imm", 16,     0 }                         }, false, false, 0x00C00000 },
-				{  "12", { {  "creg",      0 }, {  "creg",         8 }                         }, false, false, 0x00000000 },
+				{ "012", { {  "creg",     16,                      8 }, {  "creg",         0 } }, false, false, 0x00800000 },
+				{ "012", { {  "creg",     16 }, {  "creg",         8 }, {  "creg",         0 } }, false, false, 0x00800000 },
+				{ "012", { {  "creg",     16 }, {  "creg",        -1 }, {   "imm", 16,     0 } },  true, false, 0x00C00000 },
+				{ "012", { {  "creg",     16 }, {  "creg",         8 }, { "immsx",  8, 0, 14 } }, false, false, 0x00808000 },
+				{ "012", { {  "creg",     16 }, {   "imm", 16,     0 }, {  "creg",        -1 } }, false,  true, 0x00400000 },
+				{ "012", { {  "creg",     16 }, { "immsx",  8, 0, 14 }, {  "creg",         8 } }, false, false, 0x00008000 },
+				{ "012", { {  "creg",     16 }, {  "creg",        -1 }, { "[imm]", 13,     0 } },  true, false, 0x00804000 },
+				{ "012", { {  "creg",     16 }, { "[imm]", 13,     0 }, {  "creg",        -1 } }, false,  true, 0x00004000 },
+				{ "012", { { "[imm]", 13,  0 }, {  "creg",        16 }, { "[imm]", 13,    -1 } }, false,  true, 0x00806000 },
+				{ "012", { { "[imm]", 13,  0 }, { "[imm]", 13,    -1 }, {  "creg",        16 } },  true, false, 0x00006000 },
 			}
 			local mnemonic_desc = {}
 			function mnemonic_desc.length()
@@ -600,6 +598,9 @@ xpcall(function()
 								local creg = operands[ix].value
 								if ix_takes[2] ~= -1 then
 									code:merge(creg, ix_takes[2])
+									if ix_takes[3] then
+										code:merge(creg, ix_takes[3])
+									end
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -607,6 +608,9 @@ xpcall(function()
 								local creg = 0x08 + operands[ix].value
 								if ix_takes[2] ~= -1 then
 									code:merge(creg, ix_takes[2])
+									if ix_takes[3] then
+										code:merge(creg, ix_takes[3])
+									end
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -614,6 +618,9 @@ xpcall(function()
 								local creg = 0x10 + operands[ix].value
 								if ix_takes[2] ~= -1 then
 									code:merge(creg, ix_takes[2])
+									if ix_takes[3] then
+										code:merge(creg, ix_takes[3])
+									end
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -621,6 +628,9 @@ xpcall(function()
 								local creg = 0x18 + operands[ix].value
 								if ix_takes[2] ~= -1 then
 									code:merge(creg, ix_takes[2])
+									if ix_takes[3] then
+										code:merge(creg, ix_takes[3])
+									end
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -628,6 +638,9 @@ xpcall(function()
 								local creg = 0x20 + operands[ix].value
 								if ix_takes[2] ~= -1 then
 									code:merge(creg, ix_takes[2])
+									if ix_takes[3] then
+										code:merge(creg, ix_takes[3])
+									end
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -635,6 +648,9 @@ xpcall(function()
 								local creg = 0x0F
 								if ix_takes[2] ~= -1 then
 									code:merge(creg, ix_takes[2])
+									if ix_takes[3] then
+										code:merge(creg, ix_takes[3])
+									end
 								end
 								table.insert(check123, ("creg %i"):format(creg))
 
@@ -885,7 +901,7 @@ xpcall(function()
 
 	local log_path = named_args.log or unnamed_args[3]
 	if log_path then
-		printf.redirect(tostring(log_path))
+		printf.redirect(log_path)
 	end
 
 	local function resolve_relative(base_with_file, relative)
