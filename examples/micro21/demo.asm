@@ -86,8 +86,8 @@ demo_odds:               ; * Odd counter demo. Counts odd numbers in input,
     nopv
     stop
 demo_guess:              ; * Guess the number demo. Let the user think of a
-                         ;   number between 0 and 256 and find it in at most
-                         ;   eight guesses with a simple binary search.
+                         ;   number between 0 and 255 inclusive and find it in
+                         ;   at most eight guesses with a simple binary search.
                          ; * The demo can even tell if the user is being evil.
     sysr                 ; * Reset everything.
     copy a, 0x80         ; * a = 0x80
@@ -96,18 +96,18 @@ demo_guess:              ; * Guess the number demo. Let the user think of a
 .smaller_range:
     shr a, 1             ; * Halve guessing range.
     ifz a                ; * If this makes the guessing range zero,
-    jmp .loc_5B          ;   stop guessing.
+    jmp .final_guess     ;   stop guessing.
     or b, a              ; * Merge guessing range into temporary guess.
 .skip_halving:
     out b                ; * Display guess.
-    lin                  ; * If the user tells is that the number they thought
+    lin                  ; * If the user tells us that the number they thought
     jly .guessed_it      ;   of is equal to b, we're done.
-    lin                  ; * If the user tells is that the number they thought
+    lin                  ; * If the user tells us that the number they thought
     ifly                 ;   of is smaller than b, undo the merging of of the
     xor b, a             ;   guessing range, ruling out the upper half.
     jmp .smaller_range   ; * Then unconditionally try again with a smaller
                          ;   range to rule out another half.
-.loc_5B:                 ; * So we stopped guessing.
+.final_guess:            ; * So we stopped guessing.
     out b                ; * Print final guess, which we know to be right due
     lin                  ;   to having executed a perfect binary search.
     ifln                 ; * If the user doesn't agree, print 666. Note that
@@ -128,14 +128,14 @@ demo_fibonacci:          ; * Fibonacci demo. First 1 is display twice, then a
     sysr                 ; * This resets a and b to 0, among other things.
     copy a, 1            ; * a = 1, b = 0; classic starting condition.
     nop                  ; * I'm not exactly sure why these nops are here; the
-.loc_67:                 ;   documentation says you only need nops between two
+.loop:                   ;   documentation says you only need nops between two
     nop                  ;   out instructions if there's no jump between them.
     out a                ; * Output next term.
     add b, a             ; * b += a, b now contains the next term of the
     jc .overflow         ;   sequence. Stop if the addition overflows.
     out b                ; * Output next term.
     add a, b             ; * a += b, a now contains the next term of the
-    jnc .loc_67          ;   sequence. Stop if the addition overflows.
+    jnc .loop            ;   sequence. Stop if the addition overflows.
 .overflow:               ; * So basically a and b leapfrog each other.
     out 0                ; * Display 0 to mark the end of the sequence and stop.
     stop

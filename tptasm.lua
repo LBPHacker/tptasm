@@ -782,6 +782,7 @@ xpcall(function()
 			end
 		end
 		function arch_r3.flash(model, target, opcodes)
+			-- TODO: build R3
 			for ix = 0, #opcodes do
 				printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
 			end
