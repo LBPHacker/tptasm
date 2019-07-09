@@ -215,6 +215,9 @@ xpcall(function()
 		function opcode_i:dump()
 			return ("%08X "):rep(#self.dwords):format(unpack(self.dwords))
 		end
+		function opcode_i:has(shift)
+			return math.floor(self.dwords[math.floor(shift / 32) + 1] / 2 ^ (shift % 32)) % 2 == 1
+		end
 		function opcode_i:merge(thing, shift)
 			if type(thing) == "table" then
 				for ix, ix_dword in ipairs(thing.dwords) do
@@ -252,43 +255,93 @@ xpcall(function()
 	local find_cpu
 	local detect_model
 	do
+		local function enumerate_standard(id)
+			if  sim.partProperty(id, "ctype") == 0x1864A205
+			and sim.partProperty(id, "type") == elem.DEFAULT_PT_QRTZ then
+				local x, y = sim.partPosition(id)
+				local function ctype_of(offs)
+					local cid = sim.partID(x + offs, y)
+					return cid and sim.partProperty(cid, "ctype")
+				end
+				local id_target = ctype_of(-1)
+				if id_target then
+					local offs = 0
+					local id_model = ""
+					local checksum = 0
+					local name_intact = true
+					while true do
+						offs = offs + 1
+						local ctype = ctype_of(offs)
+						if not ctype then
+							name_intact = false
+							break
+						end
+						if ctype == 0 then
+							break
+						end
+						id_model = id_model .. string.char(ctype)
+						checksum = checksum + ctype
+					end
+					if name_intact and ctype_of(offs + 1) == checksum then
+						coroutine.yield(x, y, id_model, id_target)
+						return true
+					end
+				end
+			end
+			return false
+		end
+
+		local enumerate_legacy
+		do
+			local function match_property(id, name, value)
+				return not value or sim.partProperty(id, name) == value
+			end
+
+			function enumerate_legacy(model, conditions)
+				return function(id)
+					if  match_property(id, "type", conditions[1][3])
+					and match_property(id, "ctype", conditions[1][4]) then
+						local x, y = sim.partPosition(id)
+						local ok = true
+						for ix = 2, #conditions do
+							local cid = sim.partID(x + conditions[ix][1], y + conditions[ix][2])
+							if not cid
+							or not match_property(cid, "type", conditions[ix][3])
+							or not match_property(cid, "ctype", conditions[ix][4]) then
+								ok = false
+							end
+						end
+						if ok then
+							coroutine.yield(x, y, model, 0)
+							return true
+						end
+					end
+					return false
+				end
+			end
+		end
+
+		local enumerate_micro21 = enumerate_legacy("MICRO21", {
+			{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
+			{ -181, 292, elem.DEFAULT_PT_DMND,                false },
+			{  336, 201, elem.DEFAULT_PT_DMND,                false },
+			{  394,  23, elem.DEFAULT_PT_BTRY,                false },
+			{  384,  85, elem.DEFAULT_PT_BTRY,                false },
+			{  -13, 177, elem.DEFAULT_PT_BTRY,                false },
+			{ -179, 306, elem.DEFAULT_PT_PTCT,                false },
+			{ -175, 306, elem.DEFAULT_PT_PTCT,                false },
+			{ -178, 309, elem.DEFAULT_PT_PTCT,                false },
+			{ -174, 309, elem.DEFAULT_PT_PTCT,                false },
+		})
+
 		local function enumerate_cpus()
 			if not tpt then
 				printf.err("not running inside TPT, can't find target")
 				return
 			end
 			for id in sim.parts() do
-				if  sim.partProperty(id, "ctype") == 0x1864A205
-				and sim.partProperty(id, "type") == elem.DEFAULT_PT_QRTZ then
-					local x, y = sim.partPosition(id)
-					local function ctype_of(offs)
-						local cid = sim.partID(x + offs, y)
-						return cid and sim.partProperty(cid, "ctype")
-					end
-					local id_target = ctype_of(-1)
-					if id_target then
-						local offs = 0
-						local id_model = ""
-						local checksum = 0
-						local name_intact = true
-						while true do
-							offs = offs + 1
-							local ctype = ctype_of(offs)
-							if not ctype then
-								name_intact = false
-								break
-							end
-							if ctype == 0 then
-								break
-							end
-							id_model = id_model .. string.char(ctype)
-							checksum = checksum + ctype
-						end
-						if name_intact and ctype_of(offs + 1) == checksum then
-							coroutine.yield(x, y, id_model, id_target)
-						end
-					end
-				end
+				local _ = enumerate_standard(id)
+				       or enumerate_micro21(id)
 			end
 		end
 
@@ -851,7 +904,221 @@ xpcall(function()
 		end
 		architectures["B29K1QS60"] = arch_b29k1qs60
 	end
+	do
+		local arch_micro21 = {}
+		local macros_str
+		do
+			local macros_arr = {}
+			for macro, code in pairs({
+				["c"]   = "if  s,  1",
+				["a"]   = "if  s,  2",
+				["e"]   = "if  s,  4",
+				["b"]   = "ifn s,  6",
+				["2z"]  = "if  s,  8",
+				["1z"]  = "if  s, 16",
+				["ln"]  = "if  s, 32",
+				["nc"]  = "ifn s,  1",
+				["na"]  = "ifn s,  2",
+				["ne"]  = "ifn s,  4",
+				["nb"]  = "if  s,  6",
+				["n2z"] = "ifn s,  8",
+				["n1z"] = "ifn s, 16",
+				["ly"]  = "ifn s, 32",
+			}) do
+				table.insert(macros_arr, ([==[
+					%%macro if%s
+						%s
+					%%endmacro
+				]==]):format(macro, code))
+				table.insert(macros_arr, ([==[
+					%%macro j%s loc
+						if%s
+						jmp loc
+					%%endmacro
+				]==]):format(macro, macro))
+			end
+			macros_str = table.concat(macros_arr)
+		end
+		arch_micro21.includes = {
+			["common"] = ([==[
+				%macro stopsep
+					stop
+					nop
+					stop
+				%endmacro
+			]==] .. macros_str):gsub("`([A-Z]+)'", function(cap)
+				return RESERVED[cap]
+			end)
+		}
 
+		arch_micro21.dw_bits = 17
+		arch_micro21.nop = make_opcode(17):merge(0x1FFFF, 0)
+		arch_micro21.entities = {
+			["a"] = { type = "register", offset = 1 },
+			["b"] = { type = "register", offset = 2 },
+			["s"] = { type = "register", offset = 3 },
+		}
+		arch_micro21.mnemonics = {}
+		do
+			local mnemonic_to_class_code = {
+				[ "stop"] = { class = "nop", code = 0x00000 },
+				[  "jmp"] = { class =   "0", code = 0x01000 },
+				[   "if"] = { class =  "01", code = 0x02000 },
+				[  "ifn"] = { class =  "01", code = 0x03000 },
+				[  "nin"] = { class =   "0", code = 0x04000 },
+				[ "copy"] = { class =  "01", code = 0x05000 },
+				[  "lin"] = { class = "nop", code = 0x06000 },
+				[  "rnd"] = { class = "nop", code = 0x07000 },
+				[  "adc"] = { class =  "01", code = 0x08000 },
+				[  "add"] = { class =  "01", code = 0x09000 },
+				[  "lod"] = { class =  "01", code = 0x0A000 },
+				[  "sto"] = { class =  "01", code = 0x0B000 },
+				[  "and"] = { class =  "01", code = 0x0C000 },
+				[   "or"] = { class =  "01", code = 0x0D000 },
+				[  "xor"] = { class =  "01", code = 0x0E000 },
+				[  "shr"] = { class =  "01", code = 0x10000 },
+				[  "shl"] = { class =  "01", code = 0x11000 },
+				[  "rtr"] = { class =  "01", code = 0x12000 },
+				[  "rtl"] = { class =  "01", code = 0x13000 },
+				[  "out"] = { class =  "0?", code = 0x14000 },
+				[ "stip"] = { class = "nop", code = 0x15000 },
+				[ "test"] = { class =  "01", code = 0x16000 },
+				[ "sysr"] = { class = "nop", code = 0x17000 },
+				[  "neg"] = { class =  "01", code = 0x18000 },
+				[  "nop"] = { class = "nop", code = 0x1FFFF },
+			}
+
+			local mnemonic_desc = {}
+			function mnemonic_desc.length()
+				return true, 1 -- * RISC :)
+			end
+
+			function mnemonic_desc.emit(mnemonic_token, parameters)
+				local operands = {}
+				for ix, ix_param in ipairs(parameters) do
+					if #ix_param == 1
+					   and ix_param[1]:is("entity") and ix_param[1].entity.type == "register" then
+						table.insert(operands, {
+							type = "reg",
+							value = ix_param[1].entity.offset
+						})
+
+					elseif #ix_param == 1
+					   and ix_param[1]:number() then
+						table.insert(operands, {
+							type = "imm",
+							value = ix_param[1].parsed,
+							token = ix_param[1]
+						})
+					   
+					else
+						if ix_param[1] then
+							ix_param[1]:blamef(printf.err, "operand format not recognised")
+						else
+							ix_param.before:blamef_after(printf.err, "operand format not recognised")
+						end
+						return false
+
+					end
+				end
+
+				local desc = mnemonic_to_class_code[mnemonic_token.value]
+				local operand_mode_valid = false
+				if (desc.class == "nop" and #operands == 0)
+				or ((desc.class == "0" or desc.class == "0?") and #operands == 1)
+				or ((desc.class == "01" or desc.class == "0?") and #operands == 2) then
+					operand_mode_valid = true
+				end
+				if #operands == 2 and operands[1].type == "imm" and operands[2].type == "imm" then
+					operand_mode_valid = false
+				end
+				if not operand_mode_valid then
+					local operands_repr = {}
+					for _, ix_oper in ipairs(operands) do
+						table.insert(operands_repr, ix_oper.type)
+					end
+					mnemonic_token:blamef(printf.err, "no variant of %s exists that takes '%s' operands", mnemonic_token.value, table.concat(operands_repr, ", "))
+					return false
+				end
+
+				local opcode = make_opcode(17):merge(desc.code, 0)
+				local function bind_operand(slot, operand)
+					if operand.type == "imm" then
+						local truncated = operand.value % 0x100
+						local value = operand.value
+						if value >= 0x100 then
+							value = value % 0x100
+							operands[ix].token:blamef(printf.warn, "number truncated to 8 bits")
+						end
+						opcode:merge(value, 0)
+					elseif operand.type == "reg" then
+						opcode:merge(operand.value, 12 - slot * 2)
+					end
+				end
+				for ix, ix_op in ipairs(operands) do
+					bind_operand(ix, ix_op)
+				end
+				return true, { opcode }
+			end
+			for mnemonic in pairs(mnemonic_to_class_code) do
+				arch_micro21.mnemonics[mnemonic] = mnemonic_desc
+			end
+		end
+		function arch_micro21.flash(model, target, opcodes)
+			local x, y = find_cpu(model, target)
+			if not x then
+				return
+			end
+			local space_available = 0x80
+			if #opcodes >= space_available then
+				printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
+				return
+			end
+			local colour_codes = {
+				[ 0] = 0xFF00FF00,
+				[ 1] = 0xFF00FF00,
+				[ 2] = 0xFF00FF00,
+				[ 3] = 0xFF00FF00,
+				[ 4] = 0xFF00FF00,
+				[ 5] = 0xFF00FF00,
+				[ 6] = 0xFF00FF00,
+				[ 7] = 0xFF00FF00,
+				[ 8] = 0xFFFF00FF,
+				[ 9] = 0xFFFF00FF,
+				[10] = 0xFFFFFF00,
+				[11] = 0xFFFFFF00,
+				[12] = 0xFFFF0000,
+				[13] = 0xFFFF0000,
+				[14] = 0xFFFF0000,
+				[15] = 0xFFFF0000,
+				[16] = 0xFFFF0000,
+			}
+			for iy = 0, 127 do
+				local opcode = opcodes[iy] and opcodes[iy].dwords[1] or 0
+				for ix = 0, 16 do
+					local px, py = x - ix + 354, y + iy + 73
+					local old_id = sim.partID(px, py)
+					if old_id then
+						sim.partKill(old_id)
+					end
+					if bit32_and(opcode, 2 ^ ix) ~= 0 then
+						local new_id = sim.partCreate(-2, px, py, elem.DEFAULT_PT_ARAY)
+						local colour_code = colour_codes[ix]
+						if opcode == 0x1FFFF then
+							colour_code = 0xFF00FFFF
+						end
+						if bit32_and(opcode, 0x1F000) == 0x01000 and ix < 8 then
+							colour_code = 0xFF00FFFF
+						end
+						sim.partProperty(new_id, "dcolour", colour_code)
+					end
+				end
+			end
+		end
+		architectures["MICRO21"] = arch_micro21
+	end
+
+	
 	local named_args = {}
 	local unnamed_args = {}
 	if #args == 1 and type(args[1]) == "table" then
@@ -877,27 +1144,6 @@ xpcall(function()
 		end
 	end
 
-	local model_name = named_args.model or unnamed_args[4]
-	if not model_name then
-		model_name = detect_model()
-	end
-	if not model_name then
-		failf("failed to detect model and no model name was passed")
-	end
-	local architecture
-	-- * This is not a simple table lookup because multiple models may map
-	--   to the same architecture description.
-	if model_name == "R3" then
-		architecture = architectures["R3"]
-
-	elseif model_name == "B29K1QS60" then
-		architecture = architectures["B29K1QS60"]
-
-	else
-		failf("no architecture description for model '%s'", model_name)
-
-	end
-
 	if named_args.silent then
 		printf.silent = true
 	end
@@ -906,6 +1152,21 @@ xpcall(function()
 	if log_path then
 		printf.redirect(log_path)
 	end
+
+	local model_name = named_args.model or unnamed_args[4]
+	if not model_name then
+		model_name = detect_model()
+	end
+	if not model_name then
+		failf("failed to detect model and no model name was passed")
+	end
+	local model_to_architecture = {
+		["R3"] = "R3",
+		["B29K1QS60"] = "B29K1QS60",
+		["MICRO21"] = "MICRO21",
+	}
+	local architecture_name = model_to_architecture[model_name] or failf("no architecture description for model '%s'", model_name)
+	local architecture = architectures[architecture_name]
 
 	local function resolve_relative(base_with_file, relative)
 		local components = {}
