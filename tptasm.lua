@@ -381,6 +381,9 @@ xpcall(function()
 		local arch_r3 = {}
 		arch_r3.includes = {
 			["common"] = ([==[
+				%ifndef _COMMON_INCLUDED_
+				%define _COMMON_INCLUDED_
+				
 				%define dw `DW'
 				%define org `ORG'
 
@@ -399,6 +402,8 @@ xpcall(function()
 				%macro pop Thing
 					mov Thing, [sp++]
 				%endmacro
+
+				%endif ; _COMMON_INCLUDED_
 			]==]):gsub("`([A-Z]+)'", function(cap)
 				return RESERVED[cap]
 			end)
@@ -787,6 +792,10 @@ xpcall(function()
 		local arch_b29k1qs60 = {}
 		arch_b29k1qs60.includes = {
 			["common"] = ([==[
+				%ifndef _COMMON_INCLUDED_
+				%define _COMMON_INCLUDED_
+				
+				%endif ; _COMMON_INCLUDED_
 			]==]):gsub("`([A-Z]+)'", function(cap)
 				return RESERVED[cap]
 			end)
@@ -910,20 +919,20 @@ xpcall(function()
 		do
 			local macros_arr = {}
 			for macro, code in pairs({
-				["c"]   = "if  s,  1",
-				["a"]   = "if  s,  2",
-				["e"]   = "if  s,  4",
-				["b"]   = "ifn s,  6",
-				["2z"]  = "if  s,  8",
-				["1z"]  = "if  s, 16",
-				["ln"]  = "if  s, 32",
-				["nc"]  = "ifn s,  1",
-				["na"]  = "ifn s,  2",
-				["ne"]  = "ifn s,  4",
-				["nb"]  = "if  s,  6",
+				[  "c"] = "if  s,  1",
+				[  "a"] = "if  s,  2",
+				[  "e"] = "if  s,  4",
+				[  "b"] = "ifn s,  6",
+				[ "2z"] = "if  s,  8",
+				[ "1z"] = "if  s, 16",
+				[ "ly"] = "if  s, 32",
+				[ "nc"] = "ifn s,  1",
+				[ "na"] = "ifn s,  2",
+				[ "ne"] = "ifn s,  4",
+				[ "nb"] = "if  s,  6",
 				["n2z"] = "ifn s,  8",
 				["n1z"] = "ifn s, 16",
-				["ly"]  = "ifn s, 32",
+				[ "ln"] = "ifn s, 32",
 			}) do
 				table.insert(macros_arr, ([==[
 					%%macro if%s
@@ -941,18 +950,29 @@ xpcall(function()
 		end
 		arch_micro21.includes = {
 			["common"] = ([==[
-				%macro stopsep
-					stop
-					nop
-					stop
+				%ifndef _COMMON_INCLUDED_
+				%define _COMMON_INCLUDED_
+
+				%define dw `DW'
+				%define org `ORG'
+
+				%macro ifz reg
+					ifn reg, 0xFF
 				%endmacro
-			]==] .. macros_str):gsub("`([A-Z]+)'", function(cap)
+
+				%macro ifnz reg
+					if reg, 0xFF
+				%endmacro
+			]==] .. macros_str .. [==[
+
+				%endif ; _COMMON_INCLUDED_
+			]==]):gsub("`([A-Z]+)'", function(cap)
 				return RESERVED[cap]
 			end)
 		}
 
 		arch_micro21.dw_bits = 17
-		arch_micro21.nop = make_opcode(17):merge(0x1FFFF, 0)
+		arch_micro21.nop = make_opcode(17)
 		arch_micro21.entities = {
 			["a"] = { type = "register", offset = 1 },
 			["b"] = { type = "register", offset = 2 },
@@ -962,6 +982,7 @@ xpcall(function()
 		do
 			local mnemonic_to_class_code = {
 				[ "stop"] = { class = "nop", code = 0x00000 },
+				["stopv"] = { class = "nop", code = 0x00FFF },
 				[  "jmp"] = { class =   "0", code = 0x01000 },
 				[   "if"] = { class =  "01", code = 0x02000 },
 				[  "ifn"] = { class =  "01", code = 0x03000 },
@@ -985,7 +1006,8 @@ xpcall(function()
 				[ "test"] = { class =  "01", code = 0x16000 },
 				[ "sysr"] = { class = "nop", code = 0x17000 },
 				[  "neg"] = { class =  "01", code = 0x18000 },
-				[  "nop"] = { class = "nop", code = 0x1FFFF },
+				[  "nop"] = { class = "nop", code = 0x1F000 },
+				[ "nopv"] = { class = "nop", code = 0x1FFFF },
 			}
 
 			local mnemonic_desc = {}
@@ -1104,7 +1126,7 @@ xpcall(function()
 					if bit32_and(opcode, 2 ^ ix) ~= 0 then
 						local new_id = sim.partCreate(-2, px, py, elem.DEFAULT_PT_ARAY)
 						local colour_code = colour_codes[ix]
-						if opcode == 0x1FFFF then
+						if opcode == 0x1FFFF or opcode == 0x00FFF then
 							colour_code = 0xFF00FFFF
 						end
 						if bit32_and(opcode, 0x1F000) == 0x01000 and ix < 8 then
