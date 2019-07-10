@@ -2186,7 +2186,7 @@ xpcall(function()
 				offset = output_pointer
 			}
 			to_emit[output_pointer].head = to_emit[output_pointer]
-			output_pointer = output_pointer + 1
+			output_pointer = output_pointer + #values
 		end
 
 		local hooks = {}
