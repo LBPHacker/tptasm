@@ -321,18 +321,21 @@ xpcall(function()
 			end
 		end
 
-		local enumerate_micro21 = enumerate_legacy("MICRO21", {
-			{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
-			{ -181, 292, elem.DEFAULT_PT_DMND,                false },
-			{  336, 201, elem.DEFAULT_PT_DMND,                false },
-			{  394,  23, elem.DEFAULT_PT_BTRY,                false },
-			{  384,  85, elem.DEFAULT_PT_BTRY,                false },
-			{  -13, 177, elem.DEFAULT_PT_BTRY,                false },
-			{ -179, 306, elem.DEFAULT_PT_PTCT,                false },
-			{ -175, 306, elem.DEFAULT_PT_PTCT,                false },
-			{ -178, 309, elem.DEFAULT_PT_PTCT,                false },
-			{ -174, 309, elem.DEFAULT_PT_PTCT,                false },
-		})
+		local enumerate_micro21
+		if tpt then
+			enumerate_micro21 = enumerate_legacy("MICRO21", {
+				{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
+				{ -181, 292, elem.DEFAULT_PT_DMND,                false },
+				{  336, 201, elem.DEFAULT_PT_DMND,                false },
+				{  394,  23, elem.DEFAULT_PT_BTRY,                false },
+				{  384,  85, elem.DEFAULT_PT_BTRY,                false },
+				{  -13, 177, elem.DEFAULT_PT_BTRY,                false },
+				{ -179, 306, elem.DEFAULT_PT_PTCT,                false },
+				{ -175, 306, elem.DEFAULT_PT_PTCT,                false },
+				{ -178, 309, elem.DEFAULT_PT_PTCT,                false },
+				{ -174, 309, elem.DEFAULT_PT_PTCT,                false },
+			})
+		end
 
 		local function enumerate_cpus()
 			if not tpt then
