@@ -106,5 +106,4 @@ Things I still want to do but don't know when I'll have the time:
 - [ ] check if this thing works on Windows at all and fix it if it doesn't
 
 PRs are welcome, especially if they add support for computers. Yes, I do realise
-my code is a huge mess. Good luck figuring it out. No, I won't separate it into
-multiple files as that makes it inconvenient to run from TPT.
+my code is a huge mess. Good luck figuring it out.
