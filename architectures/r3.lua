@@ -14,10 +14,9 @@ arch_r3.includes = {
 
 		%define fl 0x0708
 		%define pc 0x0709
-		%define _loopcontrolbase 0x070C
-		%eval lc _loopcontrolbase 0 +
-		%eval lf _loopcontrolbase 1 +
-		%eval lt _loopcontrolbase 2 +
+		%define lc 0x070C
+		%define lf 0x070D
+		%define lt 0x070E
 		%define wm 0x070F
 
 		%macro push Thing
@@ -28,25 +27,17 @@ arch_r3.includes = {
 			mov Thing, [sp++]
 		%endmacro
 
-		%endif ; _COMMON_INCLUDED_
-	]==]):gsub("`([^\']+)'", function(cap)
-		return config.reserved[cap]
-	end)
-	--[[
-		%macro _loop_internal Reg, Count, Done, Loop
-			mov Reg, _loopcontrolbase
+		%macro loop Reg, Count, Loop, Done
+			mov Reg, 0x070C
 			mov [Reg++], Count
 			mov [Reg++], Done
 			mov [Reg++], Loop
 		%endmacro
 
-		%macro loop Count, Done, Reg
-		`peerlabel' . `macrounique' begin:
-			_loop_internal Reg, Count, Done, `peerlabel' `macrounique' loop_until
-		`peerlabel' `macrounique' loop_until:
-		`superlabel' `labelcontext':
-		%endmacro
-	--]] -- LOOPCONTROL
+		%endif ; _COMMON_INCLUDED_
+	]==]):gsub("`([^\']+)'", function(cap)
+		return config.reserved[cap]
+	end)
 }
 
 arch_r3.dw_bits = 29
