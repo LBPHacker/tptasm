@@ -340,7 +340,7 @@ return function(architecture, lines)
 		end
 	end
 	if printf.err_called then
-		failf("instruction resolution stage failed, bailing")
+		printf.failf("instruction resolution stage failed, bailing")
 	end
 
 	return to_emit, labels

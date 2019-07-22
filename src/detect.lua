@@ -117,6 +117,24 @@ function detect.cpu(model, target)
 	end
 end
 
+function detect.make_anchor(model)
+	if not tpt then
+		printf.err("not running inside TPT, can't spawn anchor")
+		return
+	end
+	local x, y = 4, 4
+	sim.partProperty(sim.partCreate(-2, x, y, elem.DEFAULT_PT_FILT), "ctype", 0xDEAD)
+	sim.partProperty(sim.partCreate(-2, x + 1, y, elem.DEFAULT_PT_QRTZ), "ctype", 0x1864A205)
+	local checksum = 0
+	for ix = 1, #model do
+		local byte = model:byte(ix)
+		sim.partProperty(sim.partCreate(-2, x + ix + 1, y, elem.DEFAULT_PT_FILT), "ctype", byte)
+		checksum = checksum + byte
+	end
+	sim.partCreate(-2, x + #model + 2, y, elem.DEFAULT_PT_FILT)
+	sim.partProperty(sim.partCreate(-2, x + #model + 3, y, elem.DEFAULT_PT_FILT), "ctype", checksum)
+end
+
 function detect.model(target)
 	for x, y, id_model, id_target in cpus() do
 		if not target or target == id_target then

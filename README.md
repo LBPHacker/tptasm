@@ -6,6 +6,13 @@ A universal assembler for TPT computers that aims to be as architecture-agnostic
 as possible and to support all more important (if not all, period) computers
 ever made in TPT.
 
+Computers currently supported:
+
+- [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570) by unnick
+- [Micro Computer v2.1](https://powdertoy.co.uk/Browse/View.html?ID=1599945)
+  by RockerM4NHUN
+- Generic R3 (unreleased, under development) by LBPHacker
+
 ## Why?
 
 Because I finally made an assembler with nice enough features that it probably
@@ -26,13 +33,14 @@ arguments.
 
 All positional arguments have equivalent named counterparts.
 
-| position | name   | type             | description                  |
-| -------- | ------ | ---------------- | ---------------------------- |
-| 1        | source | string           | path to source to assemble   |
-| 2        | target | table or integer | identifier of the target CPU |
-| 3        | log    | string or any    | path to redirect log to      |
-| 4        | model  | string           | model number                 |
-|          | silent | any              | don't log anything           |
+| position | name   | type             | description                      |
+| -------- | ------ | ---------------- | -------------------------------- |
+| 1        | source | string           | path to source to assemble       |
+| 2        | target | table or integer | identifier of the target CPU     |
+| 3        | log    | string or any    | path to redirect log to          |
+| 4        | model  | string           | model number                     |
+|          | silent | any              | don't log anything               |
+|          | anchor | string           | spawn anchor for specified model |
 
 There's also a way to pass arguments by simply passing a table as the first
 argument. In this case its integer-keyed pairs will become the positional

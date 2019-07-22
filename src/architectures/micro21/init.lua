@@ -1,3 +1,5 @@
+-- "Micro Computer v2.1" by RockerM4NHUN, id:1599945
+
 local config = require("config")
 local opcode = require("opcode")
 local detect = require("detect")

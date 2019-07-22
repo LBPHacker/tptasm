@@ -1,3 +1,5 @@
+-- "B29K1QS60" by unnick, id:2435570
+
 local config = require("config")
 local opcode = require("opcode")
 local detect = require("detect")

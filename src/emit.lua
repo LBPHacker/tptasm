@@ -60,7 +60,7 @@ return function(architecture, to_emit, labels)
 		end
 	end
 	if printf.err_called then
-		failf("opcode emission stage failed, bailing")
+		printf.failf("opcode emission stage failed, bailing")
 	end
 
 	return opcodes

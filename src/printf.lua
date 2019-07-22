@@ -56,6 +56,11 @@ do
 		printf.colour = tpt and not printf.log_handle
 	end
 	printf.update_colour()
+
+	function printf.failf(...)
+		printf.err(...)
+		error(printf.failf)
+	end
 end
 
 return printf

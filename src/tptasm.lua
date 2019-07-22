@@ -1,5 +1,7 @@
 #!/usr/bin/env lua
 
+-- WRANGLE SAFE MODULES HERE
+
 local pconf = {}
 do
 	pconf.pathsep, pconf.dirsep, pconf.wildcard = package.config:match("^([^\n]*)\n([^\n]*)\n([^\n]*)\n")
@@ -12,21 +14,19 @@ end
 local config = require("config")
 local utility = require("utility")
 
-local tpt = tpt
+tpt = tpt or false
 utility.strict()
 
 local printf = require("printf")
-local function print(...)
+local print_old = print
+function print(...)
 	printf.debug(utility.get_line(2), ...)
-end
-
-local function failf(...)
-	printf.err(...)
-	error(failf)
 end
 
 local args = { ... }
 xpcall(function()
+
+	-- WRANGLE UNSAFE MODULES HERE
 
 	local detect = require("detect")
 	local architectures = require("architectures")
@@ -35,6 +35,16 @@ xpcall(function()
 	local resolve_instructions = require("resolve.instructions")
 
 	local named_args, unnamed_args = utility.parse_args(args)
+
+	if named_args.flatten then
+		printf.info("invoked flattening mode, exiting")
+		return
+	end
+
+	if type(named_args.anchor) == "string" then
+		detect.make_anchor(named_args.anchor)
+		return
+	end
 
 	if named_args.silent then
 		printf.silent = true
@@ -50,13 +60,13 @@ xpcall(function()
 		model_name = detect.model()
 	end
 	if not model_name then
-		failf("failed to detect model and no model name was passed")
+		printf.failf("failed to detect model and no model name was passed")
 	end
 
-	local architecture_name = architectures.get_name(model_name) or failf("no architecture description for model '%s'", model_name)
+	local architecture_name = architectures.get_name(model_name) or printf.failf("no architecture description for model '%s'", model_name)
 	local architecture = architectures.get_description(architecture_name)
 
-	local root_source_path = tostring(named_args.source or unnamed_args[1] or failf("no source specified"))
+	local root_source_path = tostring(named_args.source or unnamed_args[1] or printf.failf("no source specified"))
 	local lines = preprocess(architecture, root_source_path)
 	local to_emit, labels = resolve_instructions(architecture, lines)
 	local opcodes = emit(architecture, to_emit, labels)
@@ -69,13 +79,13 @@ xpcall(function()
 	else
 		architecture.flash(model_name, target, opcodes)
 		if printf.err_called then
-			failf("flashing stage failed, bailing")
+			printf.failf("flashing stage failed, bailing")
 		end
 	end
 
 end, function(err)
 
-	if err ~= failf then
+	if err ~= printf.failf then
 		-- * Dang.
 		printf.err("error: %s", tostring(err))
 		printf.info("%s", debug.traceback())
@@ -86,6 +96,7 @@ end, function(err)
 end)
 
 package.path = pconf.package_path_old
+print = print_old
 
 printf.unredirect()
 printf.info("done")

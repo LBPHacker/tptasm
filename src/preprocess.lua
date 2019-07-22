@@ -30,7 +30,7 @@ return function(architecture, path)
 	local include_depth = 0
 
 	local function preprocess_fail()
-		failf("preprocessing stage failed, bailing")
+		printf.failf("preprocessing stage failed, bailing")
 	end
 
 	local aliases = {}
