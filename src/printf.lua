@@ -41,6 +41,7 @@ do
 		else
 			printf.warn("failed to open '%s' for writing, log not redirected", tostring(printf.log_path))
 		end
+		printf.update_colour()
 	end
 	function printf.unredirect()
 		if printf.log_handle then
@@ -51,6 +52,7 @@ do
 			printf.print = printf.print_old
 			printf.info("undoing redirection of log to '%s'", tostring(printf.log_path))
 		end
+		printf.update_colour()
 	end
 	function printf.update_colour()
 		printf.colour = tpt and not printf.log_handle
