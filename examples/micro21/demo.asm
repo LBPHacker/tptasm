@@ -123,7 +123,7 @@ demo_guess:              ; * Guess the number demo. Let the user think of a
 
     nopv
     stop
-demo_fibonacci:          ; * Fibonacci demo. First 1 is display twice, then a
+demo_fibonacci:          ; * Fibonacci demo. 1 is displayed twice, then a
                          ;   few more terms of the sequence up to 233.
     sysr                 ; * This resets a and b to 0, among other things.
     copy a, 1            ; * a = 1, b = 0; classic starting condition.

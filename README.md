@@ -45,7 +45,7 @@ All positional arguments have equivalent named counterparts.
 There's also a way to pass arguments by simply passing a table as the first
 argument. In this case its integer-keyed pairs will become the positional
 arguments (the ones that adhere to Lua's definition of arrays anyway) and
-every other pairs become named arguments. Don't worry, the examples below will
+all other pairs become named arguments. Don't worry, the examples below will
 make all this clear.
 
 ### Notes on arguments

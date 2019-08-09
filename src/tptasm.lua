@@ -1,10 +1,12 @@
 #!/usr/bin/env lua
 
+local OVERRIDE_PACKAGE = true
+
 -- WRANGLE SAFE MODULES HERE
 
 local pconf = {}
-do
-	pconf.pathsep, pconf.dirsep, pconf.wildcard = package.config:match("^([^\n]*)\n([^\n]*)\n([^\n]*)\n")
+pconf.pathsep, pconf.dirsep, pconf.wildcard = package.config:match("^([^\n]*)\n([^\n]*)\n([^\n]*)\n")
+if OVERRIDE_PACKAGE then
 	local basedir = assert(debug.getinfo(1)).source:sub(2):match(("^(.+)%s[^%s]+$"):format(pconf.pathsep, pconf.pathsep))
 	pconf.package_path_old = package.path
 	package.path = basedir .. "/?.lua" .. pconf.dirsep .. package.path
@@ -95,7 +97,9 @@ end, function(err)
 
 end)
 
-package.path = pconf.package_path_old
+if OVERRIDE_PACKAGE then
+	package.path = pconf.package_path_old
+end
 print = print_old
 
 printf.unredirect()

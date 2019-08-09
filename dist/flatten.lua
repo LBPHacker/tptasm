@@ -75,6 +75,7 @@ end)()
 				]]):format(wr.name, wr.content:gsub("\n", "\n\t")))
 			end
 		end
+		table.insert(parts, "local OVERRIDE_PACKAGE = false")
 		return table.concat(parts, "\n")
 	end):gsub("WRANGLE UNSAFE MODULES HERE", function()
 		local parts = { "DISTRIBUTION VERSION" }
