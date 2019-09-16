@@ -182,150 +182,6 @@ end
 local args = { ... }
 xpcall(function()
 
-	local detect = {}
-	do
-		local function enumerate_standard(id)
-			if  sim.partProperty(id, "ctype") == 0x1864A205
-			and sim.partProperty(id, "type") == elem.DEFAULT_PT_QRTZ then
-				local x, y = sim.partPosition(id)
-				local function ctype_of(offs)
-					local cid = sim.partID(x + offs, y)
-					return cid and sim.partProperty(cid, "ctype")
-				end
-				local id_target = ctype_of(-1)
-				if id_target then
-					local offs = 0
-					local id_model = ""
-					local checksum = 0
-					local name_intact = true
-					while true do
-						offs = offs + 1
-						local ctype = ctype_of(offs)
-						if not ctype then
-							name_intact = false
-							break
-						end
-						if ctype == 0 then
-							break
-						end
-						id_model = id_model .. string.char(ctype)
-						checksum = checksum + ctype
-					end
-					if name_intact and ctype_of(offs + 1) == checksum then
-						coroutine.yield(x, y, id_model, id_target)
-						return true
-					end
-				end
-			end
-			return false
-		end
-
-		local enumerate_legacy
-		do
-			local function match_property(id, name, value)
-				return not value or sim.partProperty(id, name) == value
-			end
-
-			function enumerate_legacy(model, conditions)
-				return function(id)
-					if  match_property(id, "type", conditions[1][3])
-					and match_property(id, "ctype", conditions[1][4]) then
-						local x, y = sim.partPosition(id)
-						local ok = true
-						for ix = 2, #conditions do
-							local cid = sim.partID(x + conditions[ix][1], y + conditions[ix][2])
-							if not cid
-							or not match_property(cid, "type", conditions[ix][3])
-							or not match_property(cid, "ctype", conditions[ix][4]) then
-								ok = false
-							end
-						end
-						if ok then
-							coroutine.yield(x, y, model, 0)
-							return true
-						end
-					end
-					return false
-				end
-			end
-		end
-
-		local enumerate_micro21
-		if tpt then
-			enumerate_micro21 = enumerate_legacy("MICRO21", {
-				{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
-				{ -181, 292, elem.DEFAULT_PT_DMND,                false },
-				{  336, 201, elem.DEFAULT_PT_DMND,                false },
-				{  394,  23, elem.DEFAULT_PT_BTRY,                false },
-				{  384,  85, elem.DEFAULT_PT_BTRY,                false },
-				{  -13, 177, elem.DEFAULT_PT_BTRY,                false },
-				{ -179, 306, elem.DEFAULT_PT_PTCT,                false },
-				{ -175, 306, elem.DEFAULT_PT_PTCT,                false },
-				{ -178, 309, elem.DEFAULT_PT_PTCT,                false },
-				{ -174, 309, elem.DEFAULT_PT_PTCT,                false },
-			})
-		end
-
-		local function enumerate_cpus()
-			if not tpt then
-				printf.err("not running inside TPT, can't find target")
-				return
-			end
-			for id in sim.parts() do
-				local _ = enumerate_standard(id)
-				       or enumerate_micro21(id)
-			end
-		end
-
-		local function cpus()
-			local co = coroutine.create(enumerate_cpus)
-			return function()
-				if coroutine.status(co) ~= "dead" then
-					local ok, x, y, id_model, id_target = coroutine.resume(co)
-					if not ok then
-						error(x)
-					end
-					return x, y, id_model, id_target
-				end
-			end
-		end
-
-		function detect.cpu(model, target)
-			for x, y, id_model, id_target in cpus() do
-				if (not target or target == id_target)
-				or (not model or model == id_model) then
-					return x, y
-				end
-			end
-		end
-
-		function detect.make_anchor(model)
-			if not tpt then
-				printf.err("not running inside TPT, can't spawn anchor")
-				return
-			end
-			local x, y = 4, 4
-			sim.partProperty(sim.partCreate(-2, x, y, elem.DEFAULT_PT_FILT), "ctype", 0xDEAD)
-			sim.partProperty(sim.partCreate(-2, x + 1, y, elem.DEFAULT_PT_QRTZ), "ctype", 0x1864A205)
-			local checksum = 0
-			for ix = 1, #model do
-				local byte = model:byte(ix)
-				sim.partProperty(sim.partCreate(-2, x + ix + 1, y, elem.DEFAULT_PT_FILT), "ctype", byte)
-				checksum = checksum + byte
-			end
-			sim.partCreate(-2, x + #model + 2, y, elem.DEFAULT_PT_FILT)
-			sim.partProperty(sim.partCreate(-2, x + #model + 3, y, elem.DEFAULT_PT_FILT), "ctype", checksum)
-		end
-
-		function detect.model(target)
-			for x, y, id_model, id_target in cpus() do
-				if not target or target == id_target then
-					return id_model
-				end
-			end
-		end
-	end
-
 
 
 	local xbit32 = {}
@@ -422,6 +278,193 @@ xpcall(function()
 		return out
 	end
 
+	local detect = {}
+	do
+		local function enumerate_standard(id)
+			if  sim.partProperty(id, "ctype") == 0x1864A205
+			and sim.partProperty(id, "type") == elem.DEFAULT_PT_QRTZ then
+				local x, y = sim.partPosition(id)
+				local dxdyprop = sim.partProperty(id, "tmp2")
+				local dx   = xbit32.band(              dxdyprop,      0xF)
+				local dy   = xbit32.band(xbit32.rshift(dxdyprop, 4),  0xF)
+				local prop = xbit32.band(xbit32.rshift(dxdyprop, 8), 0x1F)
+				if dx == 0 and dy == 0 then
+					dx = 1
+				end
+				if prop == 0 then
+					prop = sim.FIELD_CTYPE
+				end
+				local function prop_of(offs)
+					local cid = sim.partID(x + offs * dx, y + offs * dy)
+					return cid and sim.partProperty(cid, prop)
+				end
+				local id_target = prop_of(-1)
+				if id_target then
+					local offs = 0
+					local id_model = ""
+					local checksum = 0
+					local name_intact = true
+					while true do
+						offs = offs + 1
+						local ctype = prop_of(offs)
+						if not ctype then
+							name_intact = false
+							break
+						end
+						if ctype == 0 then
+							break
+						end
+						id_model = id_model .. string.char(ctype)
+						checksum = checksum + ctype
+					end
+					if name_intact and prop_of(offs + 1) == checksum then
+						coroutine.yield(x, y, id_model, id_target)
+						return true
+					end
+				end
+			end
+			return false
+		end
+
+		local function enumerate_nope()
+			-- * nothing, it's a placeholder and it just fails
+		end
+
+		local enumerate_legacy
+		do
+			local function match_property(id, name, value)
+				return not value or sim.partProperty(id, name) == value
+			end
+
+			function enumerate_legacy(model, conditions)
+				return function(id)
+					if  match_property(id, "type", conditions[1][3])
+					and match_property(id, "ctype", conditions[1][4]) then
+						local x, y = sim.partPosition(id)
+						local ok = true
+						for ix = 2, #conditions do
+							local cid = sim.partID(x + conditions[ix][1], y + conditions[ix][2])
+							if not cid
+							or not match_property(cid, "type", conditions[ix][3])
+							or not match_property(cid, "ctype", conditions[ix][4]) then
+								ok = false
+							end
+						end
+						if ok then
+							coroutine.yield(x, y, model, 0)
+							return true
+						end
+					end
+					return false
+				end
+			end
+		end
+
+		local enumerate_micro21 = enumerate_nope
+		if tpt then
+			enumerate_micro21 = enumerate_legacy("MICRO21", {
+				{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
+				{ -181, 292, elem.DEFAULT_PT_DMND,                false },
+				{  336, 201, elem.DEFAULT_PT_DMND,                false },
+				{  394,  23, elem.DEFAULT_PT_BTRY,                false },
+				{  384,  85, elem.DEFAULT_PT_BTRY,                false },
+				{  -13, 177, elem.DEFAULT_PT_BTRY,                false },
+				{ -179, 306, elem.DEFAULT_PT_PTCT,                false },
+				{ -175, 306, elem.DEFAULT_PT_PTCT,                false },
+				{ -178, 309, elem.DEFAULT_PT_PTCT,                false },
+				{ -174, 309, elem.DEFAULT_PT_PTCT,                false },
+			})
+		end
+
+		local function enumerate_cpus()
+			if not tpt then
+				printf.err("not running inside TPT, can't find target")
+				return
+			end
+			for id in sim.parts() do
+				local _ = enumerate_standard(id)
+				       or enumerate_micro21(id)
+			end
+		end
+
+		function detect.all_cpus()
+			local co = coroutine.create(enumerate_cpus)
+			return function()
+				if coroutine.status(co) ~= "dead" then
+					local ok, x, y, id_model, id_target = coroutine.resume(co)
+					if not ok then
+						error(x)
+					end
+					return x, y, id_model, id_target
+				end
+			end
+		end
+
+		function detect.cpu(model, target)
+			for x, y, id_model, id_target in detect.all_cpus() do
+				if (not target or target == id_target)
+				or (not model or model == id_model) then
+					return x, y
+				end
+			end
+		end
+
+		function detect.make_anchor(model, dxstr, dystr, propname, leetid)
+			if not tpt then
+				printf.err("not running inside TPT, can't spawn anchor")
+				return
+			end
+			local prop = sim["FIELD_" .. tostring(propname or "ctype"):upper()]
+			if not prop then
+				printf.err("invalid property")
+				return
+			end
+			local dx = tonumber(dxstr or "1")
+			if dx ~= math.floor(dx) or dx >= 8 or dx < -8 then
+				printf.err("invalid dx")
+				return
+			end
+			if dx < 0 then
+				dx = dx + 16
+			end
+			local dy = tonumber(dystr or "0")
+			if dy ~= math.floor(dy) or dy >= 8 or dy < -8 then
+				printf.err("invalid dy")
+				return
+			end
+			if dy < 0 then
+				dy = dy + 16
+			end
+			local x, y = sim.adjustCoords(tpt.mousex, tpt.mousey)
+			local function spawn(offs, ty)
+				local px = x + offs * dx
+				local py = y + offs * dy
+				local id = sim.partID(px, py) or sim.partCreate(-2, px, py, ty)
+				return id
+			end
+			sim.partProperty(spawn(-1, elem.DEFAULT_PT_FILT), prop, leetid or 1337)
+			local anchor = spawn(0, elem.DEFAULT_PT_QRTZ)
+			sim.partProperty(anchor, "tmp2", dx + dy * 0x10 + prop * 0x100)
+			sim.partProperty(anchor, "ctype", 0x1864A205)
+			local checksum = 0
+			for ix = 1, #model do
+				local byte = model:byte(ix)
+				sim.partProperty(spawn(ix, elem.DEFAULT_PT_FILT), prop, byte)
+				checksum = checksum + byte
+			end
+			spawn(#model + 1, elem.DEFAULT_PT_FILT)
+			sim.partProperty(spawn(#model + 2, elem.DEFAULT_PT_FILT), prop, checksum)
+		end
+
+		function detect.model(target)
+			for x, y, id_model, id_target in detect.all_cpus() do
+				if not target or target == id_target then
+					return id_model
+				end
+			end
+		end
+	end
+
 
 
 	local opcode = {}
@@ -489,7 +532,7 @@ xpcall(function()
 		local known_archs = {}
 
 		do
-			local arch_r3 = {} -- yet unreleased architecture by LBPHacker
+			local arch_r3 = {} -- * yet unreleased architecture by LBPHacker
 
 			arch_r3.includes = {
 				["common"] = ([==[
@@ -934,7 +977,7 @@ xpcall(function()
 		end
 
 		do
-			local arch_b29k1qs60 = {} -- "B29K1QS60" by unnick, id:2435570
+			local arch_b29k1qs60 = {} -- * "B29K1QS60" by unnick, id:2435570
 
 			arch_b29k1qs60.includes = {
 				["common"] = ([==[
@@ -1069,7 +1112,7 @@ xpcall(function()
 		end
 
 		do
-			local arch_micro21 = {} -- "Micro Computer v2.1" by RockerM4NHUN, id:1599945
+			local arch_micro21 = {} -- * "Micro Computer v2.1" by RockerM4NHUN, id:1599945
 
 			local macros_str
 			do
@@ -1303,7 +1346,7 @@ xpcall(function()
 		end
 
 		do
-			local arch_ptp7 = {} -- "PTP7" by unnick, id:2458644
+			local arch_ptp7 = {} -- * "PTP7" by unnick, id:2458644
 
 			arch_ptp7.includes = {
 				["common"] = ([==[
@@ -1447,11 +1490,232 @@ xpcall(function()
 			known_archs["PTP7"] = arch_ptp7
 		end
 
+		do
+			local arch_a728d28 = {} -- * "A7-28D28 Microcomputer" by Sam_Hayzen, id:2460726
+
+			arch_a728d28.includes = {
+				["common"] = ([==[
+					%ifndef _COMMON_INCLUDED_
+					%define _COMMON_INCLUDED_
+
+					%define dw `dw'
+					%define org `org'
+
+					%endif ; _COMMON_INCLUDED_
+				]==]):gsub("`([^\']+)'", function(cap)
+					return config.reserved[cap]
+				end)
+			}
+
+			arch_a728d28.entities = {
+				["r0"] = { type = "register", offset = 0 },
+				["r1"] = { type = "register", offset = 1 },
+				["r2"] = { type = "register", offset = 2 },
+				["r3"] = { type = "register", offset = 3 },
+			}
+
+			local mnemonics = {
+				[  "ldi"] = { class = "1I", bit =  0, flags = " s n " }, -- * r: write to and lock RP
+				[   "ld"] = { class = "1R", bit =  3, flags = "r    " }, -- * s: redirect explicit branch ptr to P
+				[   "st"] = { class = "1R", bit =  4, flags = "r    " }, -- * b: write to and lock EBP^
+				[  "stl"] = { class = "0" , bit =  5, flags = "     " }, -- * n: write to and lock NIP
+				["andrl"] = { class = "0" , bit =  6, flags = "     " }, -- * p: write to and lock P
+				[  "xor"] = { class = "0" , bit =  7, flags = "     " },
+				[   "rr"] = { class = "0" , bit =  8, flags = "     " },
+				[ "setc"] = { class = "0" , bit =  9, flags = "     " },
+				[  "brc"] = { class = "1I", bit = 10, flags = " s n " },
+				[ "brnc"] = { class = "1I", bit = 10, flags = "    p" },
+				[  "out"] = { class = "0" , bit = 11, flags = "     " },
+				[ "bsto"] = { class = "0" , bit = 12, flags = "     " },
+				[  "ldb"] = { class = "0" , bit = 13, flags = " s   " },
+				[   "br"] = { class = "1I", bit = -1, flags = "  b  " },
+			}
+
+			arch_a728d28.nop = opcode.make(28)
+
+			local mnemonic_desc = {}
+			function mnemonic_desc.length()
+				return true, 1 -- * RISC :)
+			end
+			function mnemonic_desc.emit(mnemonic_token_hax, parameters_hax, offset)
+				local tokens = { mnemonic_token_hax }
+				for _, parameter in ipairs(parameters_hax) do
+					for _, token in ipairs(parameter) do
+						table.insert(tokens, token)
+					end
+				end
+
+				local sub_instructions = {}
+				while tokens[1] do
+					local mnemonic_token = tokens[1]
+					table.remove(tokens, 1)
+
+					local instr_desc = mnemonics[mnemonic_token.value]
+					if not instr_desc then
+						mnemonic_token:blamef(printf.err, "unknown mnemonic")
+						return false
+					end
+
+					local wants_operands = tonumber(instr_desc.class:sub(1, 1))
+					local operand
+					do
+						local operand_list = {}
+						while tokens[1] and not tokens[1]:punctuator("|") do
+							table.insert(operand_list, tokens[1])
+							table.remove(tokens, 1)
+						end
+						if tokens[1] and tokens[1]:punctuator("|") then
+							table.remove(tokens, 1)
+						end
+
+						if #operand_list > wants_operands then
+							operand_list[wants_operands + 1]:blamef(printf.err, "excess operands")
+							return false
+						end
+						operand = operand_list[1]
+					end
+
+					if operand then
+						if (operand:number() and not instr_desc.class:find("I"))
+						or (operand:is("entity") and not instr_desc.class:find("R")) then -- * it can only be a register
+							mnemonic_token:blamef(printf.err, "no variant of %s exists that takes a '%s' operand", mnemonic_token.value, operand.type)
+							return false
+						end
+					end
+
+					table.insert(sub_instructions, {
+						instr_desc = instr_desc,
+						mnemonic_token = mnemonic_token,
+						operand = operand
+					})
+				end
+
+				local final_code = arch_a728d28.nop:clone()
+				local bit_invoked_by = {}
+				local rp_locked = false
+				local rp_value = 0
+				local nip_locked = false
+				local nip_value = 0
+				local p_locked = false
+				local p_value = 0
+				local explicit_branch = false
+				local branch_to_p = false
+				for _, subinst in ipairs(sub_instructions) do
+					if subinst.instr_desc.flags:find("s") then
+						branch_to_p = true
+					end
+				end
+				for _, subinst in ipairs(sub_instructions) do
+					local bit = subinst.instr_desc.bit
+					if bit_invoked_by[bit] then
+						subinst.mnemonic_token:blamef(printf.err, "micro-instruction invoked multiple times")
+						bit_invoked_by[bit]:blamef(printf.info, "first invoked here")
+						return false
+					end
+					bit_invoked_by[bit] = subinst.mnemonic_token
+
+					local imm
+					if subinst.operand and subinst.operand:number() then
+						imm = subinst.operand.parsed
+						local trunc = 0x80
+						if imm >= trunc then
+							imm = imm % trunc
+							table.insert(warnings, { subinst.operand, "number truncated to 7 bits" })
+						end
+					end
+
+					local temp_flags = subinst.instr_desc.flags
+					if temp_flags:find("b") then
+						explicit_branch = true
+						if branch_to_p then
+							temp_flags = temp_flags .. "p"
+						else
+							temp_flags = temp_flags .. "n"
+						end
+					end
+
+					if temp_flags:find("p") then
+						if p_locked and subinst.operand.parsed ~= p_value then
+							subinst.mnemonic_token:blamef(printf.err, "general pointer already locked")
+							p_locked:blamef(printf.info, "locked by this")
+							return false
+						end
+						p_locked = subinst.mnemonic_token
+						p_value = imm
+					end
+
+					if temp_flags:find("n") then
+						if nip_locked and subinst.operand.parsed ~= nip_value then
+							subinst.mnemonic_token:blamef(printf.err, "next instruction pointer already locked")
+							nip_locked:blamef(printf.info, "locked by this")
+							return false
+						end
+						nip_locked = subinst.mnemonic_token
+						nip_value = imm
+					end
+
+					if temp_flags:find("r") then
+						if rp_locked and subinst.operand.entity.offset ~= rp_value then
+							subinst.mnemonic_token:blamef(printf.err, "register bits already locked")
+							rp_locked:blamef(printf.info, "locked by this")
+							return false
+						end
+						rp_locked = subinst.mnemonic_token
+						rp_value = subinst.operand.entity.offset
+					end
+
+					final_code:merge(1, bit)
+				end
+				if not explicit_branch then
+					local next_inst = xbit32.band(offset + 1, 0x7F)
+					if branch_to_p then
+						p_value = next_inst
+					else
+						nip_value = next_inst
+					end
+				end
+				final_code:merge(p_value, 21)
+				final_code:merge(nip_value, 14)
+				final_code:merge(rp_value, 1)
+
+				return true, { final_code }
+			end
+
+			arch_a728d28.mnemonics = {}
+			for key in pairs(mnemonics) do
+				arch_a728d28.mnemonics[key] = mnemonic_desc
+			end
+
+			function arch_a728d28.flash(model, target, opcodes)
+				local x, y = detect.cpu(model, target)
+				if not x then
+					return
+				end
+
+				local space_available = ({
+					["A728D2800000"] =  0,
+					["A728D28SM16B"] = 16,
+				})[model]
+				if #opcodes >= space_available then
+					printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
+					return
+				end
+
+				for ix = 0, #opcodes do
+					sim.partProperty(sim.partID(x + 11 - ix, y - 10), "ctype", 0x20000000 + opcodes[ix].dwords[1])
+				end
+			end
+
+			known_archs["A728D28"] = arch_a728d28
+		end
+
 		local known_models_to_archs = {
-			[       "R3"] = "R3",
-			["B29K1QS60"] = "B29K1QS60",
-			[  "MICRO21"] = "MICRO21",
-			[    "PTP7A"] = "PTP7",
+			[          "R3"] = "R3",
+			[   "B29K1QS60"] = "B29K1QS60",
+			[     "MICRO21"] = "MICRO21",
+			[       "PTP7A"] = "PTP7",
+			["A728D2800000"] = "A728D28",
+			["A728D28SM16B"] = "A728D28",
 		}
 
 		function architectures.get_name(model_name)
@@ -1986,18 +2250,11 @@ xpcall(function()
 			return true
 		end
 
-		local known_identifiers = {}
-		for key in pairs(architecture.entities) do
-			known_identifiers[key] = true
-		end
-		for key in pairs(architecture.mnemonics) do
-			known_identifiers[key] = true
-		end
-		for key in pairs(hooks) do
-			known_identifiers[key] = true
-		end
-		for key, value in pairs(config.reserved) do
-			known_identifiers[value] = true
+		local function known_identifiers(name)
+			return (architecture.entities[name]
+			     or architecture.mnemonics[name]
+			     or hooks[name]
+			     or config.reserved[name]) and true
 		end
 
 		for _, tokens in ipairs(lines) do
@@ -2047,10 +2304,10 @@ xpcall(function()
 							hook = hooks[tokens[cursor].value]
 						})
 
-					elseif (tokens[cursor]:identifier() and not known_identifiers[tokens[cursor].value]) or
+					elseif (tokens[cursor]:identifier() and not known_identifiers(tokens[cursor].value)) or
 						   (tokens[cursor]:identifier(config.reserved.labelcontext)) then
 						while cursor > 1 do
-							if tokens[cursor - 1]:identifier() and not known_identifiers[tokens[cursor - 1].value] then
+							if tokens[cursor - 1]:identifier() and not known_identifiers(tokens[cursor - 1].value) then
 								tokens[cursor - 1] = tokens[cursor - 1]:point({
 									type = "identifier",
 									value = tokens[cursor - 1].value .. tokens[cursor].value
@@ -2822,7 +3079,7 @@ xpcall(function()
 				end
 				if emission_ok then
 					local emitted
-					emission_ok, emitted = rec.emit(rec.emitted_by, rec.parameters)
+					emission_ok, emitted = rec.emit(rec.emitted_by, rec.parameters, offset)
 					if emission_ok then
 						for ix = 1, rec.length do
 							opcodes[offset + ix - 1] = emitted[ix]
@@ -2851,13 +3108,13 @@ xpcall(function()
 
 	local named_args, unnamed_args = utility.parse_args(args)
 
-	if named_args.flatten then
-		printf.info("invoked flattening mode, exiting")
-		return
+	local log_path = named_args.log or unnamed_args[3]
+	if log_path then
+		printf.redirect(log_path)
 	end
 
 	if type(named_args.anchor) == "string" then
-		detect.make_anchor(named_args.anchor)
+		detect.make_anchor(named_args.anchor, named_args.anchor_dx, named_args.anchor_dy, named_args.anchor_prop, named_args.anchor_id)
 		return
 	end
 
@@ -2865,14 +3122,22 @@ xpcall(function()
 		printf.silent = true
 	end
 
-	local log_path = named_args.log or unnamed_args[3]
-	if log_path then
-		printf.redirect(log_path)
+	if named_args.detect then
+		printf.info("listing targets")
+		local counter = 0
+		for x, y, model, id in detect.all_cpus() do
+			printf.info(" * %s with ID %i at (%i, %i)", model, id, x, y)
+			counter = counter + 1
+		end
+		printf.info("found %s targets", counter)
+		return
 	end
 
+	local target = named_args.target or unnamed_args[2]
 	local model_name = named_args.model or unnamed_args[4]
+
 	if not model_name then
-		model_name = detect.model()
+		model_name = detect.model(type(target) == "number" and target)
 	end
 	if not model_name then
 		printf.failf("failed to detect model and no model name was passed")
@@ -2886,7 +3151,6 @@ xpcall(function()
 	local to_emit, labels = resolve_instructions(architecture, lines)
 	local opcodes = emit(architecture, to_emit, labels)
 
-	local target = named_args.target or unnamed_args[2]
 	if type(target) == "table" then
 		for ix, ix_opcode in pairs(opcodes) do
 			target[ix] = ix_opcode
