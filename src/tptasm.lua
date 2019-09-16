@@ -12,6 +12,7 @@ local config = {
 		identity     = "_Identity",
 		labelcontext = "_Labelcontext",
 		macrounique  = "_Macrounique",
+		model        = "_Model",
 		org          = "_Org",
 		peerlabel    = "_Peerlabel",
 		superlabel   = "_Superlabel",
@@ -995,7 +996,8 @@ xpcall(function()
 			end
 
 			function arch_r3.flash(model, target, opcodes)
-				-- TODO: build R3
+				-- * TODO: build R3
+
 				for ix = 0, #opcodes do
 					printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
 				end
@@ -1561,6 +1563,8 @@ xpcall(function()
 
 			arch_a728d28.nop = opcode.make(28)
 
+			arch_a728d28.dw_bits = 29
+
 			local mnemonic_desc = {}
 			function mnemonic_desc.length()
 				return true, 1 -- * RISC :)
@@ -1737,6 +1741,14 @@ xpcall(function()
 			known_archs["A728D28"] = arch_a728d28
 		end
 
+		do
+			local arch_maps = {}
+
+			-- * TODO
+
+			known_archs["MAPS"] = arch_maps
+		end
+
 		local known_models_to_archs = {
 			[       "R3"] = "R3",
 			["B29K1QS60"] = "B29K1QS60",
@@ -1744,6 +1756,7 @@ xpcall(function()
 			[    "PTP7A"] = "PTP7",
 			[ "A728D280"] = "A728D28",
 			[ "A728D28A"] = "A728D28",
+			[     "MAPS"] = "MAPS",
 		}
 
 		function architectures.get_name(model_name)
@@ -1832,7 +1845,7 @@ xpcall(function()
 			report("%s:%i:%i: " .. format, self.sline.path, self.sline.line, self.soffs, ...)
 			self.sline:dump_itop()
 			if self.expanded_from then
-				self.expanded_from:blamef(printf.info, "expanded from this")
+				self.expanded_from:blamef(printf.info, "  expanded from this")
 			end
 		end
 
@@ -2211,6 +2224,7 @@ xpcall(function()
 		local output_pointer = 0
 		local to_emit = {}
 		local labels = {}
+		local model_restrictions = {}
 
 		local function emit_raw(token, values)
 			to_emit[output_pointer] = {
@@ -2274,6 +2288,30 @@ xpcall(function()
 					ix_param[1]:blamef(printf.err, "expected string literal or number")
 					return false
 				end
+			end
+			return true
+		end
+		hooks[config.reserved.model] = function(hook_token, parameters)
+			if #parameters < 1 then
+				hook_token:blamef_after(printf.err, "expected models")
+				return false
+			end
+			for _, model_pack in ipairs(parameters) do
+				if #model_pack > 1 then
+					model_pack[2]:blamef(printf.err, "excess tokens")
+					return false
+				end
+				local model = model_pack[1]
+				if not model:is("stringlit") then
+					model:blamef(printf.err, "not a string literal")
+					return false
+				end
+				local restrictions = model_restrictions[model.sline.path]
+				if not restrictions then
+					restrictions = {}
+					model_restrictions[model.sline.path] = restrictions
+				end
+				table.insert(restrictions, model)
 			end
 			return true
 		end
@@ -2537,7 +2575,7 @@ xpcall(function()
 			printf.failf("instruction resolution stage failed, bailing")
 		end
 
-		return to_emit, labels
+		return to_emit, labels, model_restrictions
 	end
 
 
@@ -2824,10 +2862,10 @@ xpcall(function()
 									end
 									local err = tokens[3].value:gsub("^\"(.*)\"$", "%1")
 									if tokens[2].value == "error" then
-										printf.err("%s:%i: %%error: %s", path, line_number, err)
+										tokens[2]:blamef(printf.err, "%%error: %s", err)
 										preprocess_fail()
 									else
-										printf.warn("%s:%i: %%warning: %s", path, line_number, err)
+										tokens[2]:blamef(printf.warn, "%%warning: %s", err)
 									end
 								end
 
@@ -3069,6 +3107,29 @@ xpcall(function()
 
 
 
+	local function check_model_restrictions(model_name, model_restrictions, allow_model_mismatch)
+		for path, restrictions in pairs(model_restrictions) do
+			local path_ok = false
+			local failing_restriction_tokens = {}
+			for _, restriction in ipairs(restrictions) do
+				if model_name:find("^" .. restriction.value:gsub("^\"(.*)\"$", "%1") .. "$") then
+					path_ok = true
+				else
+					failing_restriction_tokens[restriction] = true
+				end
+			end
+			if not path_ok then
+				local report_with = allow_model_mismatch and printf.warn or printf.err
+				report_with("%s: unit incompatible with target model", path)
+				for token in pairs(failing_restriction_tokens) do
+					token:blamef(printf.info, "target model doesn't match this pattern")
+				end
+			end
+		end
+	end
+
+
+
 	local function emit(architecture, to_emit, labels)
 		local opcodes = {}
 		do
@@ -3179,7 +3240,13 @@ xpcall(function()
 
 	local root_source_path = tostring(named_args.source or unnamed_args[1] or printf.failf("no source specified"))
 	local lines = preprocess(architecture, root_source_path)
-	local to_emit, labels = resolve_instructions(architecture, lines)
+	local to_emit, labels, model_restrictions = resolve_instructions(architecture, lines)
+
+	check_model_restrictions(model_name, model_restrictions, named_args.allow_model_mismatch)
+	if printf.err_called then
+		printf.failf("model restriction check failed, bailing")
+	end
+
 	local opcodes = emit(architecture, to_emit, labels)
 
 	if type(target) == "table" then

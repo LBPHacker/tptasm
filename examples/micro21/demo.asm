@@ -1,3 +1,5 @@
+_Model "MICRO21"         ; * Specify target model.
+
 %include "common"        ; * Common header built into the assembler.
 
 start:

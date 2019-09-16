@@ -1,3 +1,5 @@
+_Model "A728D28[0A]"
+
 start:
     ldb
     st r0 | ldb

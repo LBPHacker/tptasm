@@ -1,3 +1,5 @@
+_Model "PTP7"                 ; * Specify target model.
+
 ; * Define this so %include "common" doesn't throw an error.
 ;   This needs to be done because the macro jmp needs an address
 ;   that is guaranteed to hold 0x1FFFFFFF.

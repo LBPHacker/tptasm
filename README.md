@@ -47,11 +47,12 @@ All positional arguments have equivalent named counterparts.
 | 4        | model  | string           | model number                     |
 | | silent          | any     | don't log anything                        |
 | | anchor          | string  | spawn anchor for specified model          |
-| | anchor_dx       | integer | X component of anchor direction vector    |
-| | anchor_dy       | integer | Y component of anchor direction vector    |
-| | anchor_prop     | string  | name of property for anchor to use        |
-| | anchor_id       | integer | CPU identifier to encode in the anchor    |
+| | anchor\_dx      | integer | X component of anchor direction vector    |
+| | anchor\_dy      | integer | Y component of anchor direction vector    |
+| | anchor\_prop    | string  | name of property for anchor to use        |
+| | anchor\_id      | integer | CPU identifier to encode in the anchor    |
 | | detect          | any     | list recognisable CPUs with model and ID  |
+| | allow\_model\_mismatch | any | throw only warnings instead of errors  |
 
 There's also a way to pass arguments by simply passing a table as the first
 argument. In this case its integer-keyed pairs will become the positional
