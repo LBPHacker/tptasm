@@ -400,13 +400,44 @@ xpcall(function()
 			end
 		end
 
-		function detect.cpu(model, target)
-			for x, y, id_model, id_target in detect.all_cpus() do
-				if (not target or target == id_target)
-				or (not model or model == id_model) then
-					return x, y
+		local function detect_filter(filter)
+			local candidates = {}
+			for x, y, model, id in detect.all_cpus() do
+				if filter(x, y, model, id) then
+					table.insert(candidates, {
+						x = x,
+						y = y,
+						model = model,
+						id = id
+					})
 				end
 			end
+			if tpt then
+				local mx, my = sim.adjustCoords(tpt.mousex, tpt.mousey)
+				for _, candidate in ipairs(candidates) do
+					if candidate.x == mx and candidate.y == my then
+						candidates = { candidate }
+						break
+					end
+				end
+			end
+			if candidates[1] then
+				return candidates[1]
+			end
+		end
+
+		function detect.cpu(model_in, target_in)
+			local candidate = detect_filter(function(x, y, model, id)
+				return (not target_in or target_in == id) or (not model_in or model_in == model)
+			end)
+			return candidate.x, candidate.y
+		end
+
+		function detect.model(target_in)
+			local candidate = detect_filter(function(x, y, model, id)
+				return (not target_in or target_in == id)
+			end)
+			return candidate.model
 		end
 
 		function detect.make_anchor(model, dxstr, dystr, propname, leetid)
@@ -454,14 +485,6 @@ xpcall(function()
 			end
 			spawn(#model + 1, elem.DEFAULT_PT_FILT)
 			sim.partProperty(spawn(#model + 2, elem.DEFAULT_PT_FILT), prop, checksum)
-		end
-
-		function detect.model(target)
-			for x, y, id_model, id_target in detect.all_cpus() do
-				if not target or target == id_target then
-					return id_model
-				end
-			end
 		end
 	end
 
@@ -3134,6 +3157,9 @@ xpcall(function()
 	end
 
 	local target = named_args.target or unnamed_args[2]
+	if type(target) == "string" then
+		target = tonumber(target)
+	end
 	local model_name = named_args.model or unnamed_args[4]
 
 	if not model_name then

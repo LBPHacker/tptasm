@@ -39,8 +39,13 @@ All positional arguments have equivalent named counterparts.
 | 2        | target | table or integer | identifier of the target CPU     |
 | 3        | log    | string or any    | path to redirect log to          |
 | 4        | model  | string           | model number                     |
-|          | silent | any              | don't log anything               |
-|          | anchor | string           | spawn anchor for specified model |
+| | silent          | any     | don't log anything                        |
+| | anchor          | string  | spawn anchor for specified model          |
+| | anchor_dx       | integer | X component of anchor direction vector    |
+| | anchor_dy       | integer | Y component of anchor direction vector    |
+| | anchor_prop     | string  | name of property for anchor to use        |
+| | anchor_id       | integer | CPU identifier to encode in the anchor    |
+| | detect          | any     | list recognisable CPUs with model and ID  |
 
 There's also a way to pass arguments by simply passing a table as the first
 argument. In this case its integer-keyed pairs will become the positional
@@ -52,14 +57,21 @@ make all this clear.
 
 - `target` is implicitly converted to an integer if it's a string
 - `target` may be a table, in which case the opcodes are copied into it and
-  no flashing attempts occur
-  (useful when you're using TPTASM outside TPT)
+  no flashing attempts occur (useful when you're using TPTASM outside TPT)
+- if `target` is not specified, the assembler looks for the first CPU that
+  matches the model name passed (or any CPU if it wasn't passed); if the anchor
+  particle of a CPU happens to be directly under your TPT cursor, it's selected
+  as the target
 - `log` may also be an object with a `:write` method (e.g. a file object), in
   which case output is redirected to that object by means of calling `:write`
   (`:close` is never called and doesn't have to be present)
 - `silent` is checked for truthiness by Lua's definitions, so it's considered
   true if it's not `false` or `nil`
   (likewise, useful when you're using TPTASM outside TPT)
+- `(anchor_dx, anchor_dy)` defaults to the vector `(1, 0)`, as anchors are
+  generally horizontal and are read from the left to the right
+- `anchor_prop` defaults to `"ctype"`, as anchors tend to be lines of FILT,
+  which can be easily located visually if they contain ASCII data
 
 ### Inside TPT
 
