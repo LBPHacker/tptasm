@@ -428,16 +428,21 @@ xpcall(function()
 
 		function detect.cpu(model_in, target_in)
 			local candidate = detect_filter(function(x, y, model, id)
-				return (not target_in or target_in == id) or (not model_in or model_in == model)
+				return (not target_in or target_in == id   )
+				   and (not  model_in or  model_in == model)
 			end)
-			return candidate.x, candidate.y
+			if candidate then
+				return candidate.x, candidate.y
+			end
 		end
 
 		function detect.model(target_in)
 			local candidate = detect_filter(function(x, y, model, id)
 				return (not target_in or target_in == id)
 			end)
-			return candidate.model
+			if candidate then
+				return candidate.model
+			end
 		end
 
 		function detect.make_anchor(model, dxstr, dystr, propname, leetid)
@@ -1716,8 +1721,8 @@ xpcall(function()
 				end
 
 				local space_available = ({
-					["A728D2800000"] =  0,
-					["A728D28SM16B"] = 16,
+					["A728D280"] =  0,
+					["A728D28A"] = 16,
 				})[model]
 				if #opcodes >= space_available then
 					printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
@@ -1725,7 +1730,7 @@ xpcall(function()
 				end
 
 				for ix = 0, #opcodes do
-					sim.partProperty(sim.partID(x + 11 - ix, y - 10), "ctype", 0x20000000 + opcodes[ix].dwords[1])
+					sim.partProperty(sim.partID(x + 18 - ix, y - 9), "ctype", 0x20000000 + opcodes[ix].dwords[1])
 				end
 			end
 
@@ -1733,12 +1738,12 @@ xpcall(function()
 		end
 
 		local known_models_to_archs = {
-			[          "R3"] = "R3",
-			[   "B29K1QS60"] = "B29K1QS60",
-			[     "MICRO21"] = "MICRO21",
-			[       "PTP7A"] = "PTP7",
-			["A728D2800000"] = "A728D28",
-			["A728D28SM16B"] = "A728D28",
+			[       "R3"] = "R3",
+			["B29K1QS60"] = "B29K1QS60",
+			[  "MICRO21"] = "MICRO21",
+			[    "PTP7A"] = "PTP7",
+			[ "A728D280"] = "A728D28",
+			[ "A728D28A"] = "A728D28",
 		}
 
 		function architectures.get_name(model_name)

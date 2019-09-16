@@ -8,11 +8,14 @@ ever made in TPT.
 
 Computers currently supported (in alphabetical order):
 
-- [A7-28D28 Microcomputer](https://powdertoy.co.uk/Browse/View.html?ID=2460726) by Sam_Hayzen
-- [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570) by unnick
+- [A7-28D28 Microcomputer](https://powdertoy.co.uk/Browse/View.html?ID=2460726)
+  by Sam_Hayzen
+- [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570)
+  by unnick
 - [Micro Computer v2.1](https://powdertoy.co.uk/Browse/View.html?ID=1599945)
   by RockerM4NHUN
-- Generic R3 (unreleased, under development) by LBPHacker
+- Generic R3 (unreleased, under development)
+  by LBPHacker
 
 ## Why?
 
@@ -22,7 +25,7 @@ computers with this one instead.
 
 ## How?
 
-[Click here for TL;DR](#tldr), if you don't feel like reading all this.
+[Click here for TL;DR](#tldr) if you don't feel like reading all this.
 
 You can run the assembler from TPT or really in any environment that's
 compatible with Lua 5.1. Running it from TPT has the benefit of actually
