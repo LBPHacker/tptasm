@@ -1742,9 +1742,40 @@ xpcall(function()
 		end
 
 		do
+			-- * TODO: figure out what the hell I was doing last time
 			local arch_maps = {}
 
-			-- * TODO
+			arch_maps.includes = {
+				["common"] = ([==[
+					%ifndef _COMMON_INCLUDED_
+					%define _COMMON_INCLUDED_
+
+					%define dw `dw'
+					%define org `org'
+
+					%endif ; _COMMON_INCLUDED_
+				]==]):gsub("`([^\']+)'", function(cap)
+					return config.reserved[cap]
+				end)
+			}
+
+			arch_maps.entities = {}
+			arch_maps.nop = opcode.make(18)
+			arch_maps.dw_bits = 18
+
+			arch_maps.mnemonics = {}
+			-- for key in pairs(mnemonics) do
+			-- 	arch_maps.mnemonics[key] = mnemonic_desc
+			-- end
+
+			function arch_maps.flash(model, target, opcodes)
+				local x, y = detect.cpu(model, target)
+				if not x then
+					return
+				end
+
+				-- ?
+			end
 
 			known_archs["MAPS"] = arch_maps
 		end
@@ -1756,7 +1787,7 @@ xpcall(function()
 			[    "PTP7A"] = "PTP7",
 			[ "A728D280"] = "A728D28",
 			[ "A728D28A"] = "A728D28",
-			[     "MAPS"] = "MAPS",
+			-- [     "MAPS"] = "MAPS", -- * incomplete, don't use
 		}
 
 		function architectures.get_name(model_name)
