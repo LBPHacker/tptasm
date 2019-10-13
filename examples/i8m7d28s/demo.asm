@@ -1,46 +1,60 @@
-_Model "I8M7D28S"
+_Model "I8M7D28S"             ; * Specify target model.
 
-%include "common"
+%include "common"             ; * Common header built into the assembler.
 
 start:
-    ld loc_4
-    addi 0x0F | stl
-    st loc_2
-    addi 0x40
-    st loc_0
-.over_loop:
-    ld loc_2
-    st loc_3
-.print_loop:
-    ld loc_0  | out 1
-    ld loc_3
-    dec       | and   | jz ..done
-    st loc_3  | jp .print_loop
-..done:
-    ld loc_1  | out 1
-    ld loc_0  | dec
-    st loc_0
-    ld loc_2
-    dec       | and   | jz .end
-    st loc_2  | jp .over_loop
-.end:
-    ld loc_5  | stl
-    rng
-    or        | out 1
-    ld loc_6  | out 1 | jp start
+    ld zero                   ; * Zero out bus and add small constants to it
+                              ;   later instead of storing them in RAM; this
+                              ;   technique does save RAM but it only works for
+                              ;   small (8-bit) constants and whatever you're
+                              ;   willing to construct from those.
+    addi 0x0F    | stl        ; * Store 0x0F in L.
+    st over_cnt               ; * Store 0x0F to outer loop counter.
+    addi 0x40                 ; * Bump bus value by 0x40 to get 0x4F ('F' in the
+    st to_output              ;   terminal's character ROM) and store it
+                              ;   into the output buffer.
+.over_loop:                   ; * Outer loop; prints lines of various lengths.
+    ld over_cnt               ; * Prepare to print as many characters as many
+    st print_cnt              ;   iterations we have yet to do.
+.print_loop:                  ; * Inner loop; prints individual lines.
+    ld to_output | out 1      ; * Load output buffer, print the character in it.
+    ld print_cnt              ; * Load loop counter, decrement it, break out of
+    dec          | and   | jz ..done  ;   the loop if it got to zero, store
+    st print_cnt | jp .print_loop     ;   it back otherwise and iterate.
+                                      ; * The 'and' here is a bitwise AND with
+                                      ;   L, currently holding 0x0F.
+..done:                       ; * End of inner loop.
+    ld mf_nofill | out 1      ; * Tell the terminal to not waste time padding
+                              ;   new lines with spaces.
+    ld to_output | dec        ; * Load output buffer, decrement it,
+    st to_output              ;   store it back.
+    ld over_cnt               ; * Load outer loop counter, decrement it, break
+    dec          | and   | jz .end    ;   of the loop if it got to zero, store
+    st over_cnt  | jp .over_loop      ;   it back otherwise and iterate.
+                                      ; * The 'and' here is a bitwise AND with
+                                      ;   L, currently holding 0x0F.
+.end:                         ; * End of outer loop.
+    ld mf_store  | stl        ; * Store "store" command for the terminal into L.
+    rng                       ; * Generate a random number, then merge it with
+    or           | out 1      ;   the store command and output it. This stores
+                              ;   the random number in the terminal's data bus.
+    ld mf_colour | out 1 | jp start   ; * Instruct terminal to set the random
+                                      ;   number previously stored in its data
+                                      ;   bus as the colour for future printing,
+                                      ;   then start over.
 
 org_data 0
-loc_0:
-    dw 'G'
-loc_1:
-    dw 0x2000
-loc_2:
-    dw 7
-loc_3:
-    dw 6
-loc_4:
+to_output:
     dw 0
-loc_5:
+over_cnt:
+    dw 7
+print_cnt:
+    dw 6
+zero:
+    dw 0
+mf_nofill:
+    dw 0x2000
+mf_store:
     dw 0x8000000
-loc_6:
+mf_colour:
     dw 0x800
