@@ -59,7 +59,13 @@ do
 				end
 			end
 		else
-			for ix_arg, arg in ipairs(args) do
+			local max_arg = 0
+			for key in pairs(args) do
+				max_arg = key
+			end
+			local unnamed_counter = 0
+			for ix_arg = 1, max_arg do
+				local arg = args[ix_arg]
 				local key_value = type(arg) == "string" and { arg:match("^([^=]+)=(.+)$") }
 				if key_value and key_value[1] then
 					if named_args[key_value[1]] then
@@ -67,7 +73,8 @@ do
 					end
 					named_args[key_value[1]] = key_value[2]
 				else
-					table.insert(unnamed_args, arg)
+					unnamed_counter = unnamed_counter + 1
+					unnamed_args[unnamed_counter] = arg
 				end
 			end
 		end
@@ -2362,11 +2369,17 @@ xpcall(function()
 					if not found then
 						return false, cursor, "unknown operator"
 					end
-					apply_operator(found)
+					local ok, pos, err = apply_operator(found)
+					if not ok then
+						return false, pos, err
+					end
 					cursor = cursor + #found
 
 				elseif tokens[cursor]:identifier() and operator_funcs[tokens[cursor].value] then
-					apply_operator(tokens[cursor].value)
+					local ok, pos, err = apply_operator(tokens[cursor].value)
+					if not ok then
+						return false, pos, err
+					end
 
 				elseif tokens[cursor]:identifier() then
 					table.insert(stack, {
@@ -2383,7 +2396,10 @@ xpcall(function()
 				end
 			end
 
-			apply_operator(config.reserved.identity)
+			local ok, pos, err = apply_operator(config.reserved.identity)
+			if not ok then
+				return false, pos, err
+			end
 			if #stack > 1 then
 				return false, stack[2].position, "excess value"
 			end
