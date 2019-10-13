@@ -1563,6 +1563,14 @@ xpcall(function()
 						operand_list[wants_operands + 1]:blamef(printf.err, "excess operands")
 						return false
 					end
+					if #operand_list < wants_operands then
+						if #operand_list == 0 then
+							mnemonic_token:blamef_after(printf.err, "insufficient operands")
+						else
+							operand_list[#operand_list]:blamef_after(printf.err, "insufficient operands")
+						end
+						return false
+					end
 					operand = operand_list[1]
 				end
 
