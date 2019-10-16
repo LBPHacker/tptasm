@@ -7,6 +7,7 @@ local config = {
 		eval = 100
 	},
 	reserved = {
+		appendvararg = "_Appendvararg",
 		defined      = "_Defined",
 		dw           = "_Dw",
 		identity     = "_Identity",
@@ -17,7 +18,6 @@ local config = {
 		org          = "_Org",
 		peerlabel    = "_Peerlabel",
 		superlabel   = "_Superlabel",
-		appendvararg = "_Appendvararg",
 		vararg       = "_Vararg",
 		varargsize   = "_Varargsize",
 	},
@@ -129,7 +129,7 @@ do
 				cursor = cursor + 2
 				return cursor - 2, cursor, head % 0x10 * 0x1000 + cont1 % 0x40 * 0x40 + cont2 % 0x40
 			end
-			if head < 0xF0 and cursor + 3 <= #str then
+			if head < 0xF8 and cursor + 3 <= #str then
 				local cont1, cont2, cont3 = str:byte(cursor + 1, cursor + 3)
 				cursor = cursor + 3
 				return cursor - 3, cursor, head % 0x08 * 0x40000 + cont1 % 0x40 * 0x1000 + cont2 % 0x40 * 0x40 + cont3 % 0x40
