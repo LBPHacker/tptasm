@@ -11,6 +11,7 @@ local config = {
 		dw           = "_Dw",
 		identity     = "_Identity",
 		labelcontext = "_Labelcontext",
+		litmap       = "_Litmap",
 		macrounique  = "_Macrounique",
 		model        = "_Model",
 		org          = "_Org",
@@ -19,8 +20,12 @@ local config = {
 		appendvararg = "_Appendvararg",
 		vararg       = "_Vararg",
 		varargsize   = "_Varargsize",
-	}
+	},
+	litmap = {}
 }
+for ix = 0, 127 do
+	config.litmap[ix] = ix
+end
 
 
 
@@ -101,6 +106,35 @@ do
 			table.insert(components, 1, "..")
 		end
 		return prefix .. table.concat(components, "/")
+	end
+
+	function utility.utf8_each(str)
+		local cursor = 0
+		return function()
+			if cursor >= #str then
+				return
+			end
+			cursor = cursor + 1
+			local head = str:byte(cursor)
+			if head < 0x80 then
+				return cursor, cursor, head
+			end
+			if head < 0xE0 and cursor + 1 <= #str then
+				local cont1 = str:byte(cursor + 1, cursor + 1)
+				cursor = cursor + 1
+				return cursor - 1, cursor, head % 0x20 * 0x40 + cont1 % 0x40
+			end
+			if head < 0xF0 and cursor + 2 <= #str then
+				local cont1, cont2 = str:byte(cursor + 1, cursor + 2)
+				cursor = cursor + 2
+				return cursor - 2, cursor, head % 0x10 * 0x1000 + cont1 % 0x40 * 0x40 + cont2 % 0x40
+			end
+			if head < 0xF0 and cursor + 3 <= #str then
+				local cont1, cont2, cont3 = str:byte(cursor + 1, cursor + 3)
+				cursor = cursor + 3
+				return cursor - 3, cursor, head % 0x08 * 0x40000 + cont1 % 0x40 * 0x1000 + cont2 % 0x40 * 0x40 + cont3 % 0x40
+			end
+		end
 	end
 end
 
@@ -2458,8 +2492,13 @@ xpcall(function()
 				ix_token.parsed = number
 			elseif ix_token:charlit() then
 				local number = 0
-				for ch in ix_token.value:gsub("^'(.*)'$", "%1"):gmatch(".") do
-					number = xbit32.add(xbit32.lshift(number, 8), ch:byte())
+				for first, last, code_point in utility.utf8_each(ix_token.value:gsub("^'(.*)'$", "%1")) do
+					local mapped = config.litmap[code_point]
+					if not mapped then
+						ix_token:blamef(printf.warn, "code point %i at offset [%i, %i] not mapped, defaulting to 0", code_point, first, last)
+						mapped = 0
+					end
+					number = xbit32.add(xbit32.lshift(number, 8), mapped)
 				end
 				ix_token.type = "number"
 				ix_token.value = tostring(number)
@@ -2565,8 +2604,13 @@ xpcall(function()
 					emit_raw(ix_param[1], { architecture.nop:clone():merge(number, 0) })
 				elseif ix_param[1]:stringlit() then
 					local values = {}
-					for ch in ix_param[1].value:gsub("^\"(.*)\"$", "%1"):gmatch(".") do
-						table.insert(values, architecture.nop:clone():merge(ch:byte(), 0))
+					for first, last, code_point in utility.utf8_each(ix_param[1].value:gsub("^\"(.*)\"$", "%1")) do
+						local mapped = config.litmap[code_point]
+						if not mapped then
+							ix_param[1]:blamef(printf.warn, "code point %i at offset [%i, %i] not mapped, defaulting to 0", code_point, first, last)
+							mapped = 0
+						end
+						table.insert(values, architecture.nop:clone():merge(mapped, 0))
 					end
 					emit_raw(ix_param[1], values)
 				else
@@ -2576,13 +2620,58 @@ xpcall(function()
 			end
 			return true
 		end
+		hooks[config.reserved.litmap] = function(hook_token, parameters)
+			if #parameters == 0 then
+				hook_token:blamef_after(printf.err, "expected base")
+				return false
+			end
+			if #parameters[1] < 1 then
+				parameters[1]:blamef_after(printf.err, "no tokens")
+				return false
+			end
+			if #parameters[1] > 1 then
+				parameters[1][2]:blamef(printf.err, "excess tokens")
+				return false
+			end
+			if not parameters[1][1]:number() then
+				parameters[1][1]:blamef(printf.err, "not a number")
+				return false
+			end
+			if #parameters == 1 then
+				parameters[1][1]:blamef_after(printf.err, "expected map")
+				return false
+			end
+			if #parameters[2] < 1 then
+				parameters[2]:blamef_after(printf.err, "no tokens")
+				return false
+			end
+			if #parameters[2] > 1 then
+				parameters[2][2]:blamef(printf.err, "excess tokens")
+				return false
+			end
+			if not parameters[2][1]:stringlit() then
+				parameters[2][1]:blamef(printf.err, "not a string literal")
+				return false
+			end
+			local base = parameters[1][1].parsed
+			local map = parameters[2][1].value:gsub("^\"(.*)\"$", "%1")
+			local counter = 0
+			for first, last, code_point in utility.utf8_each(map) do
+				config.litmap[code_point] = base + counter
+				counter = counter + 1
+			end
+			return true
+		end
 		hooks[config.reserved.model] = function(hook_token, parameters)
 			if #parameters < 1 then
 				hook_token:blamef_after(printf.err, "expected models")
 				return false
 			end
 			for _, model_pack in ipairs(parameters) do
-				if #model_pack > 1 then
+				if #model_pack < 1 then
+					model_pack[2].before:blamef_after(printf.err, "no tokens")
+					return false
+				elseif #model_pack > 1 then
 					model_pack[2]:blamef(printf.err, "excess tokens")
 					return false
 				end
