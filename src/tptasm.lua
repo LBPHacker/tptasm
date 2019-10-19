@@ -2374,6 +2374,7 @@ xpcall(function()
 					position = cursor,
 					depth = max_depth + 1
 				})
+				return true
 			end
 
 			while cursor <= last do
