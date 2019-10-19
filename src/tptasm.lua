@@ -2287,7 +2287,7 @@ xpcall(function()
 			[">" ] = { params = { "number", "number" }, does = function(a, b) return (a >  b) and 1 or 0 end },
 			["<" ] = { params = { "number", "number" }, does = function(a, b) return (a <  b) and 1 or 0 end },
 			["=="] = { params = { "number", "number" }, does = function(a, b) return (a == b) and 1 or 0 end },
-			["~="] = { params = { "number", "number" }, does = function(a, b) return (a ~= b) and 1 or 0 end },
+			["!="] = { params = { "number", "number" }, does = function(a, b) return (a ~= b) and 1 or 0 end },
 			["&&"] = { params = { "number", "number" }, does = function(a, b) return (a ~= 0 and b ~= 0) and 1 or 0 end },
 			["||"] = { params = { "number", "number" }, does = function(a, b) return (a ~= 0 or  b ~= 0) and 1 or 0 end },
 			["!" ] = { params = { "number"           }, does = function(a) return (a == 0) and 1 or 0 end },
