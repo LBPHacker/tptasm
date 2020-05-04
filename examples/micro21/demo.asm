@@ -23,8 +23,11 @@ start:
 
 
 org 0x2A                 ; * The actual demos are aligned so that they end
-                         ;   exactly at the end of the ROM, likely for aesthetic
-                         ;   reasons.
+                         ;   exactly at the end of the ROM.
+                         ; * I'd thought that this had been done for aesthetic
+                         ;   reasons, but by RockerM4NHUN's account the reason
+                         ;   is just that it makes changing existing code
+                         ;   easier. Yeah, I guess having an assembler helps.
 
 
 
@@ -47,8 +50,8 @@ demo_addition:           ; * It doesn't get any simpler than this. Two numbers
 demo_odds:               ; * Odd counter demo. Counts odd numbers in input,
                          ;   which consists of all the integers entered by the
                          ;   user until the first zero.
-                         ; * First outputs the amount of integers entered, then
-                         ;   the amount of odd integers in among those.
+                         ; * It first outputs the amount of integers entered,
+                         ;   then the amount of odd integers among those.
     sysr                 ; * Reset system, storing 0 in m_buf_pointer,
                          ;   m_odd_counter and register b, among other things.
                          ; * b now points to 0 and will be used as a pointer

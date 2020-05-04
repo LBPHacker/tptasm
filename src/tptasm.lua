@@ -2838,7 +2838,7 @@ xpcall(function()
 							brace_end = brace_end + 1
 						end
 						if not last then
-							tokens[cursor]:blamef(printf.err, "unfinished evalation block")
+							tokens[cursor]:blamef(printf.err, "unfinished evaluation block")
 							line_failed = true
 							break
 						end
@@ -3622,6 +3622,32 @@ xpcall(function()
 		printf.failf("model restriction check failed, bailing")
 	end
 
+	if named_args.export_labels then
+		local handle = io.open(named_args.export_labels, "wb")
+		if handle then
+			local sorted_labels = {}
+			for name, address in pairs(labels) do
+				printf.debug("wtf", type(address))
+				table.insert(sorted_labels, {
+					name = name,
+					address = tonumber(address)
+				})
+			end
+			table.sort(sorted_labels, function(lhs, rhs)
+				if lhs.address < rhs.address then return  true end
+				if lhs.address > rhs.address then return false end
+				if lhs.name    < rhs.name    then return  true end
+				if lhs.name    > rhs.name    then return false end
+				return false
+			end)
+			for _, label in ipairs(sorted_labels) do
+				handle:write(("%s 0x%X\n"):format(label.name, label.address))
+			end
+			handle:close()
+		else
+			printf.warn("failed to open '%s' for writing, no labels exported", tostring(named_args.export_labels))
+		end
+	end
 	local opcodes = emit(architecture, to_emit, labels)
 
 	if type(target) == "table" then
