@@ -3623,11 +3623,10 @@ xpcall(function()
 	end
 
 	if named_args.export_labels then
-		local handle = io.open(named_args.export_labels, "wb")
+		local handle = io.open(named_args.export_labels, "w")
 		if handle then
 			local sorted_labels = {}
 			for name, address in pairs(labels) do
-				printf.debug("wtf", type(address))
 				table.insert(sorted_labels, {
 					name = name,
 					address = tonumber(address)
