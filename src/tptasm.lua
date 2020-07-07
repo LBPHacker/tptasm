@@ -1609,9 +1609,15 @@ xpcall(function()
 				end
 
 				if operand then
-					if (operand:number() and not instr_desc.class:find("I"))
-					or (operand:is("entity") and not instr_desc.class:find("R")) then -- * it can only be a register
-						mnemonic_token:blamef(printf.err, "no variant of %s exists that takes a '%s' operand", mnemonic_token.value, operand.type)
+					local expect_class = "X"
+					if operand:number() then
+						expect_class = "I"
+					end
+					if operand:is("entity") then
+						expect_class = "R"
+					end
+					if not instr_desc.class:find(expect_class) then -- * it can only be a register
+						mnemonic_token:blamef(printf.err, "no variant of '%s' exists that takes a %s operand '%s'", mnemonic_token.value, operand.type, operand.value)
 						return false
 					end
 				end

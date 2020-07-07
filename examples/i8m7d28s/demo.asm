@@ -29,8 +29,8 @@ start:
     ld to_output | dec        ; * Load output buffer, decrement it,
     st to_output              ;   store it back.
     ld over_cnt               ; * Load outer loop counter, decrement it, break
-    dec          | and   | jz .end    ;   of the loop if it got to zero, store
-    st over_cnt  | jp .over_loop      ;   it back otherwise and iterate.
+    dec          | and   | jz .end    ;   out of the loop if it got to zero,
+    st over_cnt  | jp .over_loop      ;   store it back otherwise and iterate.
                                       ; * The 'and' here is a bitwise AND with
                                       ;   L, currently holding 0x0F.
 .end:                         ; * End of outer loop.
