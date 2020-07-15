@@ -3,19 +3,20 @@
 ## What?
 
 A universal assembler for TPT computers that aims to be as architecture-agnostic
-as possible and to support all more important (if not all, period) computers
-ever made in TPT.
+as possible and to support all computers ever made in TPT. If you're aware of
+one that I've missed, open an issue.
 
 Computers currently supported (in alphabetical order):
 
-- [A7-28D28 Microcomputer](https://powdertoy.co.uk/Browse/View.html?ID=2460726)
-  by Sam_Hayzen
-- [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570)
-  by unnick
-- [Micro Computer v2.1](https://powdertoy.co.uk/Browse/View.html?ID=1599945)
-  by RockerM4NHUN
-- Generic R3 (unreleased, under development)
-  by LBPHacker
+- [A728D28](https://powdertoy.co.uk/Browse/View.html?ID=2460726) by Sam_Hayzen
+- [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570) by unnick
+- [MICRO21](https://powdertoy.co.uk/Browse/View.html?ID=1599945) by RockerM4NHUN
+- [PTP7](https://powdertoy.co.uk/Browse/View.html?ID=2458644) by unnick
+- Generic R3 (unreleased, under development) by LBPHacker
+
+Computers on the way to being supported (in alphabetical order):
+
+- [MAPS](https://powdertoy.co.uk/Browse/View.html?ID=975033) by drakide (work in progress)
 
 ## Why?
 
@@ -73,8 +74,8 @@ make all this clear.
 - `log` may also be an object with a `:write` method (e.g. a file object), in
   which case output is redirected to that object by means of calling `:write`
   (`:close` is never called and doesn't have to be present)
-- `silent` is checked for truthiness by Lua's definitions, so it's considered
-  true if it's not `false` or `nil`
+- `silent` and `allow_model_mismatch` are checked for truthiness by Lua's
+  definitions, so they're considered true if they're not `false` or `nil`
   (likewise, useful when you're using TPTASM outside TPT)
 - `(anchor_dx, anchor_dy)` defaults to the vector `(1, 0)`, as anchors are
   generally horizontal and are read from the left to the right
@@ -99,7 +100,7 @@ Assuming this repository has been cloned to `~/Development/tptasm`, navigate to
 execute this:
 
 ```lua
-loadfile("~/Development/tptasm/tptasm.lua")("~/Development/tptasm/examples/micro21/demo.lua")
+loadfile("~/Development/tptasm/src/main.lua")("~/Development/tptasm/examples/micro21/demo.asm")
 ```
 
 ### Somewhere else
@@ -117,24 +118,39 @@ tptasm({ source = "/path/to/source.asm", target = opcodes, model = "R3" })
 print(opcodes[0x1337]:dump())
 ```
 
+### Exporting labels
+
+The file referred to by `export_labels` will looks something like this
+(see [examples/micro21/demo.asm](examples/micro21/demo.asm)):
+
+```
+start 0x0
+start.jump_table 0x6
+demo_addition 0x2C
+demo_odds 0x33
+demo_odds.get_number 0x34
+demo_odds.get_number.done 0x3A
+demo_odds.count_odds 0x3B
+...
+```
+
+That is, it'll have one fully qualified label and the corresponding address
+in hexadecimal per line, separated by one space character.
+
 ### TL;DR
 
 Steps to take if you have no idea what's going on and just want to finally
 program a computer:
 
-1. [click here](https://raw.githubusercontent.com/LBPHacker/tptasm/master/src/tptasm.lua);
-   this will either take you to a new page with a lot of text, or it will
-   make your browser automatically download a file named `tptasm.lua`
-1. if you end up on the page with a lot of text, try `right click -> Save As` or
-   `Ctrl+S` (or whatever floats your boat); this _really_ should make your
-   browser automatically download said file (or it may ask you where you want to
-   save it and under what name; leave it `tptasm.lua` and _make sure_ the file
-   is actually called `tptasm.lua` and not something stupid like
-   `tptasm.lua.txt`)
-1. save said file to wherever you have TPT installed, preferably next to the
-   Saves folder
-1. have the code you want to assemble saved to a file (say, `code.asm`), and
-   have said file also next to the Save folder
+1. find the green button on this page which looks like it might let you
+   download something; clicking it gives you a popup with an option somewhere
+   to download a ZIP
+1. download said ZIP and extract it somewhere, then find the src folder inside
+   and rename it to tptasm
+1. open the settings menu in TPT, scroll down and click Open Data Folder;
+   move the tptasm folder from earlier to the one that TPT just opened
+1. have the code you want to assemble saved to a file (say, `code.asm`) and
+   move said file, once again, to the folder TPT just opened
 1. open the save in TPT with the computer you want to program
 1. if there are multiple computers in the save, find the one and only QRTZ
    particle in the computer you want to program (possibly with the Find mode,
@@ -143,20 +159,21 @@ program a computer:
    window) and execute the following:
 
    ```lua
-   loadfile("tptasm.lua")("code.asm")
+   loadfile("tptasm/main.lua")("code.asm")
    ```
 
+1. if `[tptasm] done` is the only thing you see, your code assembled
+   and you're done!
 1. if `[tptasm] done` is not the only thing you see, you may want to save the
    log to a file for inspection; you can do this by executing this instead:
 
    ```lua
-   loadfile("tptasm.lua")("code.asm", nil, "log.log")
+   loadfile("tptasm/main.lua")("code.asm", nil, "log.log")
    ```
 
-   ... which will create a file named log.log next to your Saves folder with
-   messages explaining why your code failed to be assembled
-1. if your code assembles, you're done!
-1. if the log shows something like "this is an error, tell LBPHacker", then
+   ... which will create a file named log.log in the folder TPT opened; open
+   this file in a text editor to see why your code didn't assemble
+1. if the file shows something like "this is an error, tell LBPHacker", then
    tell me!
 
 
