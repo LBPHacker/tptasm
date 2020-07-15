@@ -10,6 +10,7 @@ Computers currently supported (in alphabetical order):
 
 - [A728D28](https://powdertoy.co.uk/Browse/View.html?ID=2460726) by Sam_Hayzen
 - [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570) by unnick
+- [I8M7D28S](https://powdertoy.co.uk/Browse/View.html?ID=2473628) by Sam_Hayzen
 - [MICRO21](https://powdertoy.co.uk/Browse/View.html?ID=1599945) by RockerM4NHUN
 - [PTP7](https://powdertoy.co.uk/Browse/View.html?ID=2458644) by unnick
 - Generic R3 (unreleased, under development) by LBPHacker
