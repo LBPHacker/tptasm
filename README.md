@@ -53,6 +53,7 @@ All positional arguments have equivalent named counterparts.
 | | anchor\_id      | integer | CPU identifier to encode in the anchor    |
 | | detect          | any     | list recognisable CPUs with model and ID  |
 | | allow\_model\_mismatch | any | throw only warnings instead of errors  |
+| | export\_labels  | string  | path to export labels to                  |
 
 There's also a way to pass arguments by simply passing a table as the first
 argument. In this case its integer-keyed pairs will become the positional
