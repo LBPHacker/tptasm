@@ -80,9 +80,11 @@ local clam_slot_name = {
 }
 
 local mnemonic_desc = {}
+
 function mnemonic_desc.length()
 	return true, 1 -- * RISC :)
 end
+
 function mnemonic_desc.emit(mnemonic_token_hax, parameters_hax, offset)
 	local sub_instructions = hacks.pig(mnemonic_token_hax, parameters_hax, mnemonics)
 	if not sub_instructions then

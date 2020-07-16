@@ -11,13 +11,10 @@ Computers currently supported (in alphabetical order):
 - [A728D28](https://powdertoy.co.uk/Browse/View.html?ID=2460726) by Sam_Hayzen
 - [B29K1QS60](https://powdertoy.co.uk/Browse/View.html?ID=2435570) by unnick
 - [I8M7D28S](https://powdertoy.co.uk/Browse/View.html?ID=2473628) by Sam_Hayzen
+- [MAPS](https://powdertoy.co.uk/Browse/View.html?ID=975033) by drakide
 - [MICRO21](https://powdertoy.co.uk/Browse/View.html?ID=1599945) by RockerM4NHUN
 - [PTP7](https://powdertoy.co.uk/Browse/View.html?ID=2458644) by unnick
 - Generic R3 (unreleased, under development) by LBPHacker
-
-Computers on the way to being supported (in alphabetical order):
-
-- [MAPS](https://powdertoy.co.uk/Browse/View.html?ID=975033) by drakide (work in progress)
 
 ## Why?
 
@@ -27,7 +24,8 @@ computers with this one instead.
 
 ## How?
 
-[Click here for TL;DR](#tldr) if you don't feel like reading all this.
+[Click here](#tldr) for steps to take if you have no idea what's going on and
+just want to finally program a computer.
 
 You can run the assembler from TPT or really in any environment that's
 compatible with Lua 5.1. Running it from TPT has the benefit of actually
@@ -139,9 +137,6 @@ That is, it'll have one fully qualified label and the corresponding address
 in hexadecimal per line, separated by one space character.
 
 ### TL;DR
-
-Steps to take if you have no idea what's going on and just want to finally
-program a computer:
 
 1. find the green button on this page which looks like it might let you
    download something; clicking it gives you a popup with an option somewhere

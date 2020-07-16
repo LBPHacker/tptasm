@@ -16,7 +16,7 @@ local known_models_to_archs = {
 	[  "A728D280" ] = "A728D28",
 	[  "A728D28A" ] = "A728D28",
 	[  "I8M7D28S" ] = "I8M7D28S",
-	-- [      "MAPS" ] = "MAPS", -- * incomplete, don't use
+	[      "MAPS" ] = "MAPS",
 }
 
 local function get_name(model_name)

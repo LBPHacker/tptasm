@@ -78,6 +78,7 @@ local function enumerate_legacy(model, conditions)
 end
 
 local enumerate_micro21 = enumerate_nope
+local enumerate_maps = enumerate_nope
 if tpt then
 	enumerate_micro21 = enumerate_legacy("MICRO21", {
 		{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
@@ -91,6 +92,18 @@ if tpt then
 		{ -178, 309, elem.DEFAULT_PT_PTCT,                false },
 		{ -174, 309, elem.DEFAULT_PT_PTCT,                false },
 	})
+	enumerate_maps = enumerate_legacy("MAPS", {
+		{  nil, nil, elem.DEFAULT_PT_SWCH, false },
+		{  -28,  -2, elem.DEFAULT_PT_ARAY, false },
+		{  137, -27, elem.DEFAULT_PT_DLAY, false },
+		{   67, -11, elem.DEFAULT_PT_INST, false },
+		{   49,  19, elem.DEFAULT_PT_FILT, false },
+		{  -12,  34, elem.DEFAULT_PT_INWR, false },
+		{   90,   3, elem.DEFAULT_PT_ARAY, false },
+		{   94, -42, elem.DEFAULT_PT_INSL, false },
+		{  124,  12, elem.DEFAULT_PT_SWCH, false },
+		{  113,  11, elem.DEFAULT_PT_METL, false },
+	})
 end
 
 local function enumerate_cpus()
@@ -101,6 +114,7 @@ local function enumerate_cpus()
 	for id in sim.parts() do
 		local _ = enumerate_standard(id)
 		       or enumerate_micro21(id)
+		       or enumerate_maps(id)
 	end
 end
 

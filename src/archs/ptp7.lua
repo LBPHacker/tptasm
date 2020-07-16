@@ -43,9 +43,11 @@ local mnemonics = {
 }
 
 local mnemonic_desc = {}
+
 function mnemonic_desc.length()
 	return true, 1 -- * RISC :)
 end
+
 function mnemonic_desc.emit(mnemonic_token, parameters)
 	local final_code = nop:clone()
 	local instr_desc = mnemonics[mnemonic_token.value]

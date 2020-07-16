@@ -37,9 +37,11 @@ local jmem_mnemonics = {
 }
 
 local mnemonic_desc = {}
+
 function mnemonic_desc.length()
 	return true, 1 -- * RISC :)
 end
+
 function mnemonic_desc.emit(mnemonic_token, parameters)
 	local parameter_ix = 0
 	local function take_parameter(role)

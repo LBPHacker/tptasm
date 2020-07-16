@@ -90,7 +90,7 @@ local function utf8_each(str)
 end
 
 return {
-	utility = utility,
+	get_line = get_line,
 	parse_args = parse_args,
 	resolve_relative = resolve_relative,
 	utf8_each = utf8_each,
