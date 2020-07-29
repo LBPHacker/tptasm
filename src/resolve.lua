@@ -1,6 +1,7 @@
 local config = require("config")
 local evaluate = require("evaluate")
 local utility = require("utility")
+local xbit32 = require("xbit32")
 
 local function parameters(before, expanded, first, last)
 	local parameters = {}
@@ -97,17 +98,6 @@ local function instructions(architecture, lines)
 	local labels = {}
 	local model_restrictions = {}
 
-	local function emit_raw(token, values)
-		to_emit[output_pointer] = {
-			emit = values,
-			length = #values,
-			emitted_by = token,
-			offset = output_pointer
-		}
-		to_emit[output_pointer].head = to_emit[output_pointer]
-		output_pointer = output_pointer + #values
-	end
-
 	local hooks = {}
 	hooks[config.reserved.org] = function(hook_token, parameters)
 		if #parameters < 1 then
@@ -138,18 +128,8 @@ local function instructions(architecture, lines)
 			if #ix_param < 1 then
 				ix_param.before:blamef_after(printf.err, "no tokens")
 				return false
-			elseif #ix_param > 1 then
-				ix_param[2]:blamef(printf.err, "excess tokens")
-				return false
 			end
-			if ix_param[1]:number() then
-				local number = ix_param[1].parsed
-				if number >= 2 ^ architecture.dw_bits then
-					number = number % 2 ^ architecture.dw_bits
-					ix_param[1]:blamef(printf.warn, "number truncated to %i bits", architecture.dw_bits)
-				end
-				emit_raw(ix_param[1], { architecture.nop:clone():merge(number, 0) })
-			elseif ix_param[1]:stringlit() then
+			if #ix_param == 1 and ix_param[1]:stringlit() then
 				local values = {}
 				for first, last, code_point in utility.utf8_each(ix_param[1].value:gsub("^\"(.*)\"$", "%1")) do
 					local mapped = config.litmap[code_point]
@@ -159,10 +139,39 @@ local function instructions(architecture, lines)
 					end
 					table.insert(values, architecture.nop:clone():merge(mapped, 0))
 				end
-				emit_raw(ix_param[1], values)
+				to_emit[output_pointer] = {
+					emit = values,
+					length = #values,
+					emitted_by = ix_param[1],
+					offset = output_pointer
+				}
+				to_emit[output_pointer].head = to_emit[output_pointer]
+				output_pointer = output_pointer + #values
 			else
-				ix_param[1]:blamef(printf.err, "expected string literal or number")
-				return false
+				to_emit[output_pointer] = {
+					emit = function()
+						if #ix_param > 1 then
+							ix_param[2]:blamef(printf.err, "excess tokens")
+							return false
+						end
+						if not ix_param[1]:number() then
+							ix_param[1]:blamef(printf.err, "expected string literal or number")
+							return false
+						end
+						local number = ix_param[1].parsed
+						if number >= 2 ^ architecture.dw_bits then
+							number = number % 2 ^ architecture.dw_bits
+							ix_param[1]:blamef(printf.warn, "number truncated to %i bits", architecture.dw_bits)
+						end
+						return true, { architecture.nop:clone():merge(number, 0) }
+					end,
+					parameters = { ix_param },
+					length = 1,
+					emitted_by = ix_param[1],
+					offset = output_pointer
+				}
+				to_emit[output_pointer].head = to_emit[output_pointer]
+				output_pointer = output_pointer + 1
 			end
 		end
 		return true
@@ -403,7 +412,7 @@ local function instructions(architecture, lines)
 		end
 
 		if not line_failed then
-			if #tokens == 2 and tokens[1]:is("label") and tokens[2]:punctuator(":") then
+			while #tokens >= 2 and tokens[1]:is("label") and tokens[2]:punctuator(":") do
 				if tokens[1].ignore then
 					for ix = tokens[1].level + 2, #label_context do
 						label_context[ix] = nil
@@ -415,8 +424,11 @@ local function instructions(architecture, lines)
 					labels[tokens[1].value] = tostring(output_pointer)
 					label_context[tokens[1].level + 1] = tokens[1].rest
 				end
+				table.remove(tokens, 1)
+				table.remove(tokens, 1)
+			end
 
-			elseif #tokens >= 1 and tokens[1]:is("mnemonic") then
+			if #tokens >= 1 and tokens[1]:is("mnemonic") then
 				local funcs = tokens[1].mnemonic
 				local parameters = parameters(tokens[1], tokens, 2, #tokens)
 				local ok, length = funcs.length(tokens[1], parameters)
@@ -459,27 +471,24 @@ local function instructions(architecture, lines)
 			elseif #tokens >= 1 and tokens[1]:is("hook") then
 				local parameters = parameters(tokens[1], tokens, 2, #tokens)
 				for ix, ix_param in ipairs(parameters) do
-					local labels_ok, ix, err = label_offsets(ix_param, labels)
-					if labels_ok then
-						local evals_ok, ix, jx, err = evaluations(ix_param, labels)
-						if evals_ok then
-							local numbers_ok, ix, err = numbers(ix_param)
-							if not numbers_ok then
-								ix_param[ix]:blamef(printf.err, "invalid number: %s", err)
-								line_failed = true
-							end
-						else
-							ix_param[ix].value[jx]:blamef(printf.err, "evaluation failed: %s", err)
+					local evals_ok, ix, jx, err = evaluations(ix_param, labels)
+					if evals_ok then
+						local numbers_ok, ix, err = numbers(ix_param)
+						if not numbers_ok then
+							ix_param[ix]:blamef(printf.err, "invalid number: %s", err)
 							line_failed = true
 						end
 					else
-						ix_param[ix]:blamef(printf.err, "failed to resolve label: %s", err)
+						ix_param[ix].value[jx]:blamef(printf.err, "evaluation failed: %s", err)
 						line_failed = true
 					end
 				end
 				if not line_failed then
 					line_failed = not tokens[1].hook(tokens[1], parameters)
 				end
+
+			elseif #tokens == 0 then
+				-- * Nothing.
 
 			else
 				tokens[1]:blamef(printf.err, "expected label declaration, instruction or hook invocation")

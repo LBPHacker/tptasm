@@ -11,6 +11,10 @@ local function enumerate_standard(id)
 		if dx == 0 and dy == 0 then
 			dx = 1
 		end
+		if math.abs(dx) > 1 or math.abs(dy) > 1 then -- * Garbage.
+			dy = 0
+			dx = 1
+		end
 		if prop == 0 then
 			prop = sim.FIELD_CTYPE
 		end

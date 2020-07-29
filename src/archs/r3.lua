@@ -67,6 +67,27 @@ local includes = {
 			mov [Reg++], Loop
 		%endmacro
 
+		%define ja jnbe
+		%define jna jbe
+		%define jae jnc
+		%define jnae jc
+		%define je jz
+		%define jne jnz
+		%define jnle jg
+		%define jle jng
+		%define jnl jge
+		%define jl jnge
+		%define jb jc
+		%define jnb jnc
+
+		%macro ret
+			jmp [sp++]
+		%endmacro
+
+		%macro nop
+			jn r0
+		%endmacro
+
 		%endif ; _COMMON_INCLUDED_
 	]==]):gsub("`([^\']+)'", function(cap)
 		return config.reserved[cap]
@@ -78,82 +99,68 @@ local dw_bits = 29
 local nop = opcode.make(32):merge(0x20000000, 0)
 
 local entities = {
-	["r0"] = { type = "register", offset = 0 },
-	["r1"] = { type = "register", offset = 1 },
-	["r2"] = { type = "register", offset = 2 },
-	["r3"] = { type = "register", offset = 3 },
-	["r4"] = { type = "register", offset = 4 },
-	["r5"] = { type = "register", offset = 5 },
-	["r6"] = { type = "register", offset = 6 },
-	["r7"] = { type = "register", offset = 7 },
-	["sp"] = { type = "register", offset = 7 },
-	["lo"] = { type = "last_output" },
+	[ "r0" ] = { type = "register", offset = 0 },
+	[ "r1" ] = { type = "register", offset = 1 },
+	[ "r2" ] = { type = "register", offset = 2 },
+	[ "r3" ] = { type = "register", offset = 3 },
+	[ "r4" ] = { type = "register", offset = 4 },
+	[ "r5" ] = { type = "register", offset = 5 },
+	[ "r6" ] = { type = "register", offset = 6 },
+	[ "r7" ] = { type = "register", offset = 7 },
+	[ "lo" ] = { type = "last_output" },
 }
+entities["sp"] = entities["r7"]
 
 local mnemonics = {}
 
 local mnemonic_to_class_code = {
-	[  "jn"] = { class =   "2", code = 0x20000000 },
-	[ "jmp"] = { class =   "2", code = 0x20010000 },
-	[ "ret"] = { class = "nop", code = 0x208100D7 },
-	[ "jnb"] = { class =   "2", code = 0x20020000 },
-	[ "jae"] = { class =   "2", code = 0x20020000 },
-	[ "jnc"] = { class =   "2", code = 0x20020000 },
-	[  "jb"] = { class =   "2", code = 0x20030000 },
-	["jnae"] = { class =   "2", code = 0x20030000 },
-	[  "jc"] = { class =   "2", code = 0x20030000 },
-	[ "jno"] = { class =   "2", code = 0x20040000 },
-	[  "jo"] = { class =   "2", code = 0x20050000 },
-	[ "jne"] = { class =   "2", code = 0x20060000 },
-	[ "jnz"] = { class =   "2", code = 0x20060000 },
-	[  "je"] = { class =   "2", code = 0x20070000 },
-	[  "jz"] = { class =   "2", code = 0x20070000 },
-	[ "jns"] = { class =   "2", code = 0x20080000 },
-	[  "js"] = { class =   "2", code = 0x20090000 },
-	[ "jnl"] = { class =   "2", code = 0x200A0000 },
-	[ "jge"] = { class =   "2", code = 0x200A0000 },
-	[  "jl"] = { class =   "2", code = 0x200B0000 },
-	["jnge"] = { class =   "2", code = 0x200B0000 },
-	["jnbe"] = { class =   "2", code = 0x200C0000 },
-	[  "ja"] = { class =   "2", code = 0x200C0000 },
-	[ "jbe"] = { class =   "2", code = 0x200D0000 },
-	[ "jna"] = { class =   "2", code = 0x200D0000 },
-	["jnle"] = { class =   "2", code = 0x200E0000 },
-	[  "jg"] = { class =   "2", code = 0x200E0000 },
-	[ "jle"] = { class =   "2", code = 0x200F0000 },
-	[ "jng"] = { class =   "2", code = 0x200F0000 },
-	[ "hlt"] = { class = "nop", code = 0x21000000 },
-	[ "nop"] = { class = "nop", code = 0x20000000 },
-	[ "mov"] = { class =  "02", code = 0x22000000 },
-	["call"] = { class =   "2", code = 0x231F0000 },
-	[ "bsf"] = { class =  "02", code = 0x24000000 },
-	[ "bsr"] = { class =  "02", code = 0x25000000 },
-	[ "zsf"] = { class =  "02", code = 0x26000000 },
-	[ "zsr"] = { class =  "02", code = 0x27000000 },
-	["maks"] = { class =  "12", code = 0x28000000 },
-	["exts"] = { class =  "12", code = 0x29000000 },
-	["scls"] = { class =  "12", code = 0x2A000000 },
-	["scrs"] = { class =  "12", code = 0x2B000000 },
-	[ "cmp"] = { class =  "12", code = 0x2C000000 },
-	["cmpc"] = { class =  "12", code = 0x2D000000 },
-	["test"] = { class =  "12", code = 0x2E000000 },
-	["op0f"] = { class = "nop", code = 0x2F000000 },
-	["mak1"] = { class = "012", code = 0x30000000 },
-	["ext1"] = { class = "012", code = 0x31000000 },
-	[ "rol"] = { class = "012", code = 0x32000000 },
-	[ "ror"] = { class = "012", code = 0x33000000 },
-	[ "add"] = { class = "012", code = 0x34000000 },
-	[ "adc"] = { class = "012", code = 0x35000000 },
-	[ "xor"] = { class = "012", code = 0x36000000 },
-	[  "or"] = { class = "012", code = 0x37000000 },
-	[ "mak"] = { class = "012", code = 0x38000000 },
-	[ "ext"] = { class = "012", code = 0x39000000 },
-	[ "scl"] = { class = "012", code = 0x3A000000 },
-	[ "scr"] = { class = "012", code = 0x3B000000 },
-	[ "sub"] = { class = "012", code = 0x3C000000 },
-	[ "sbb"] = { class = "012", code = 0x3D000000 },
-	[ "and"] = { class = "012", code = 0x3E000000 },
-	[ "pml"] = { class = "012", code = 0x3F000000 },
+	[   "jn" ] = { class =   "2", code = 0x20000000 },
+	[  "jmp" ] = { class =   "2", code = 0x20010000 },
+	[  "jnc" ] = { class =   "2", code = 0x20020000 },
+	[   "jc" ] = { class =   "2", code = 0x20030000 },
+	[  "jno" ] = { class =   "2", code = 0x20040000 },
+	[   "jo" ] = { class =   "2", code = 0x20050000 },
+	[  "jnz" ] = { class =   "2", code = 0x20060000 },
+	[   "jz" ] = { class =   "2", code = 0x20070000 },
+	[  "jns" ] = { class =   "2", code = 0x20080000 },
+	[   "js" ] = { class =   "2", code = 0x20090000 },
+	[  "jge" ] = { class =   "2", code = 0x200A0000 },
+	[ "jnge" ] = { class =   "2", code = 0x200B0000 },
+	[ "jnbe" ] = { class =   "2", code = 0x200C0000 },
+	[  "jbe" ] = { class =   "2", code = 0x200D0000 },
+	[   "jg" ] = { class =   "2", code = 0x200E0000 },
+	[  "jng" ] = { class =   "2", code = 0x200F0000 },
+	[  "hlt" ] = { class = "nop", code = 0x21000000 },
+	[  "mov" ] = { class =  "02", code = 0x22000000 },
+	[ "call" ] = { class =   "2", code = 0x231F0000 },
+	[  "bsf" ] = { class =  "02", code = 0x24000000 },
+	[  "bsr" ] = { class =  "02", code = 0x25000000 },
+	[  "zsf" ] = { class =  "02", code = 0x26000000 },
+	[  "zsr" ] = { class =  "02", code = 0x27000000 },
+	[ "maks" ] = { class =  "12", code = 0x28000000 },
+	[ "exts" ] = { class =  "12", code = 0x29000000 },
+	[ "scls" ] = { class =  "12", code = 0x2A000000 },
+	[ "scrs" ] = { class =  "12", code = 0x2B000000 },
+	[  "cmp" ] = { class =  "12", code = 0x2C000000 },
+	[ "cmpc" ] = { class =  "12", code = 0x2D000000 },
+	[ "test" ] = { class =  "12", code = 0x2E000000 },
+	[ "op0f" ] = { class = "nop", code = 0x2F000000 },
+	[ "mak1" ] = { class = "012", code = 0x30000000 },
+	[ "ext1" ] = { class = "012", code = 0x31000000 },
+	[  "rol" ] = { class = "012", code = 0x32000000 },
+	[  "ror" ] = { class = "012", code = 0x33000000 },
+	[  "add" ] = { class = "012", code = 0x34000000 },
+	[  "adc" ] = { class = "012", code = 0x35000000 },
+	[  "xor" ] = { class = "012", code = 0x36000000 },
+	[   "or" ] = { class = "012", code = 0x37000000 },
+	[  "mak" ] = { class = "012", code = 0x38000000 },
+	[  "ext" ] = { class = "012", code = 0x39000000 },
+	[  "scl" ] = { class = "012", code = 0x3A000000 },
+	[  "scr" ] = { class = "012", code = 0x3B000000 },
+	[  "sub" ] = { class = "012", code = 0x3C000000 },
+	[  "sbb" ] = { class = "012", code = 0x3D000000 },
+	[  "and" ] = { class = "012", code = 0x3E000000 },
+	[  "pml" ] = { class = "012", code = 0x3F000000 },
 }
 local operand_modes = {
 	{ "nop", {                                                                     }, false, false, 0x00000000 },

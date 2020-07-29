@@ -171,6 +171,12 @@ local function flash(model, target, opcodes)
 		return
 	end
 
+	local space_available = 0x80
+	if #opcodes >= space_available then
+		printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
+		return
+	end
+
 	for ix = 0, 127 do
 		local opcode = opcodes[ix] and opcodes[ix].dwords[1] or 0x00E00
 		local x_ = x + bit.band(bit.rshift(ix, 6), 1)
