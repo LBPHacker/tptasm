@@ -2,6 +2,7 @@ local config = require("config")
 local evaluate = require("evaluate")
 local resolve = require("resolve")
 local tokenise = require("tokenise")
+local utility = require("utility")
 
 local source_line_i = {}
 local source_line_mt = { __index = source_line_i }

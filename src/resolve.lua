@@ -1,5 +1,6 @@
 local config = require("config")
 local evaluate = require("evaluate")
+local utility = require("utility")
 
 local function parameters(before, expanded, first, last)
 	local parameters = {}
