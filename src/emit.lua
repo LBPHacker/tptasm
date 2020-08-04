@@ -18,9 +18,9 @@ return function(architecture, to_emit, labels)
 		if type(rec.emit) == "function" then
 			local emission_ok = true
 			for ix, ix_param in ipairs(rec.parameters) do
-				local labels_ok, ix, err = resolve.label_offsets(ix_param, labels)
+				local labels_ok, ix, err = resolve.label_offsets(ix_param, labels, rec)
 				if labels_ok then
-					local evals_ok, ix, jx, err = resolve.evaluations(ix_param, labels)
+					local evals_ok, ix, jx, err = resolve.evaluations(ix_param, labels, rec)
 					if evals_ok then
 						local numbers_ok, ix, err = resolve.numbers(ix_param)
 						if not numbers_ok then

@@ -55,25 +55,34 @@ local function numbers(tokens)
 	return true
 end
 
-local function label_offsets(tokens, labels)
+local function label_offsets(tokens, labels, emit_rec)
 	for ix, ix_token in ipairs(tokens) do
-		if ix_token:is("label") then
-			local offs = labels[ix_token.value]
-			if offs then
+		if ix_token:identifier(config.reserved.this) then
+			if emit_rec then
 				ix_token.type = "number"
-				ix_token.value = offs
-			else
+				ix_token.value = tostring(emit_rec.offset)
+			end
+		elseif ix_token:identifier(config.reserved.next) then
+			if emit_rec then
+				ix_token.type = "number"
+				ix_token.value = tostring(emit_rec.offset + emit_rec.length)
+			end
+		elseif ix_token:is("label") then
+			local offs = labels[ix_token.value]
+			if not offs then
 				return false, ix, ix_token.value
 			end
+			ix_token.type = "number"
+			ix_token.value = offs
 		end
 	end
 	return true
 end
 
-local function evaluations(tokens, labels)
+local function evaluations(tokens, labels, emit_rec)
 	for ix, ix_token in ipairs(tokens) do
 		if ix_token:is("evaluation") then
-			local labels_ok, jx, err = label_offsets(ix_token.value, labels)
+			local labels_ok, jx, err = label_offsets(ix_token.value, labels, emit_rec)
 			if labels_ok then
 				local ok, result, err = evaluate(ix_token.value, 1, #ix_token.value, {})
 				if ok then
@@ -246,11 +255,15 @@ local function instructions(architecture, lines)
 		return true
 	end
 
+	local reserved_set = {}
+	for _, item in pairs(config.reserved) do
+		reserved_set[item] = true
+	end
 	local function known_identifiers(name)
 		return (architecture.entities[name]
 		     or architecture.mnemonics[name]
 		     or hooks[name]
-		     or config.reserved[name]) and true
+		     or reserved_set[name]) and true
 	end
 
 	for _, tokens in ipairs(lines) do
