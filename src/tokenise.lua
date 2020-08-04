@@ -75,11 +75,16 @@ function token_i:blamef(report, format, ...)
 	end
 end
 
-function token_i:expand_by(other)
+function token_i:clone()
 	local clone = setmetatable({}, token_mt)
 	for key, value in pairs(self) do
 		clone[key] = value
 	end
+	return clone
+end
+
+function token_i:expand_by(other)
+	local clone = self:clone()
 	clone.expanded_from = other
 	return clone
 end

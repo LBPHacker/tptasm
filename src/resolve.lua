@@ -29,70 +29,90 @@ local function parameters(before, expanded, first, last)
 	return parameters
 end
 
-local function numbers(tokens)
+local function numbers(for_length_calc, tokens)
 	for ix, ix_token in ipairs(tokens) do
 		if ix_token:number() then
-			local ok, number = ix_token:parse_number()
-			if not ok then
-				return false, ix, number
-			end
-			ix_token.parsed = number
-		elseif ix_token:charlit() then
-			local number = 0
-			for first, last, code_point in utility.utf8_each(ix_token.value:gsub("^'(.*)'$", "%1")) do
-				local mapped = config.litmap[code_point]
-				if not mapped then
-					ix_token:blamef(printf.warn, "code point %i at offset [%i, %i] not mapped, defaulting to 0", code_point, first, last)
-					mapped = 0
+			if not for_length_calc then
+				local ok, number = ix_token:parse_number()
+				if not ok then
+					return false, ix, number
 				end
-				number = xbit32.add(xbit32.lshift(number, 8), mapped)
+				ix_token.parsed = number
 			end
-			ix_token.type = "number"
-			ix_token.value = tostring(number)
-			ix_token.parsed = number
+		elseif ix_token:charlit() then
+			if not for_length_calc then
+				local number = 0
+				for first, last, code_point in utility.utf8_each(ix_token.value:gsub("^'(.*)'$", "%1")) do
+					local mapped = config.litmap[code_point]
+					if not mapped then
+						ix_token:blamef(printf.warn, "code point %i at offset [%i, %i] not mapped, defaulting to 0", code_point, first, last)
+						mapped = 0
+					end
+					number = xbit32.add(xbit32.lshift(number, 8), mapped)
+				end
+				ix_token.type = "number"
+				ix_token.value = tostring(number)
+				ix_token.parsed = number
+			end
 		end
 	end
 	return true
 end
 
-local function label_offsets(tokens, labels, emit_rec)
+local function label_offsets(for_length_calc, tokens, labels, emit_rec)
 	for ix, ix_token in ipairs(tokens) do
 		if ix_token:identifier(config.reserved.this) then
-			if emit_rec then
+			if for_length_calc then
+				ix_token.type = "number"
+				ix_token.value = "dummy"
+			elseif emit_rec then
 				ix_token.type = "number"
 				ix_token.value = tostring(emit_rec.offset)
 			end
 		elseif ix_token:identifier(config.reserved.next) then
-			if emit_rec then
+			if for_length_calc then
+				ix_token.type = "number"
+				ix_token.value = "dummy"
+			elseif emit_rec then
 				ix_token.type = "number"
 				ix_token.value = tostring(emit_rec.offset + emit_rec.length)
 			end
 		elseif ix_token:is("label") then
-			local offs = labels[ix_token.value]
-			if not offs then
-				return false, ix, ix_token.value
+			if for_length_calc then
+				ix_token.type = "number"
+				ix_token.value = "dummy"
+			else
+				local offs = labels[ix_token.value]
+				if not offs then
+					return false, ix, ix_token.value
+				end
+				ix_token.type = "number"
+				ix_token.value = offs
 			end
-			ix_token.type = "number"
-			ix_token.value = offs
 		end
 	end
 	return true
 end
 
-local function evaluations(tokens, labels, emit_rec)
+local function evaluations(for_length_calc, tokens, labels, emit_rec)
 	for ix, ix_token in ipairs(tokens) do
 		if ix_token:is("evaluation") then
-			local labels_ok, jx, err = label_offsets(ix_token.value, labels, emit_rec)
-			if labels_ok then
-				local ok, result, err = evaluate(ix_token.value, 1, #ix_token.value, {})
-				if ok then
-					ix_token.type = "number"
-					ix_token.value = tostring(result)
-				else
-					return false, ix, result, err
-				end
+			if for_length_calc then
+				ix_token.type = "number"
+				ix_token.value = "dummy"
 			else
-				return false, ix, jx, err
+				local labels_ok, jx, err = label_offsets(for_length_calc, ix_token.value, labels, emit_rec)
+				if labels_ok then
+					local ok, result, err = evaluate(ix_token.value, 1, #ix_token.value, {})
+					if ok then
+						ix_token.type = "number"
+						ix_token.value = tostring(result)
+					else
+						return false, ix, result, err
+					end
+				else
+					return false, ix, jx, err
+				end
 			end
 		end
 	end
@@ -443,8 +463,20 @@ local function instructions(architecture, lines)
 
 			if #tokens >= 1 and tokens[1]:is("mnemonic") then
 				local funcs = tokens[1].mnemonic
-				local parameters = parameters(tokens[1], tokens, 2, #tokens)
-				local ok, length = funcs.length(tokens[1], parameters)
+				local params = parameters(tokens[1], tokens, 2, #tokens)
+				local params_flc = {}
+				for px = 1, #params do
+					local param = params[px]
+					local param_flc = {}
+					for tx = 1, #param do
+						table.insert(param_flc, param[tx]:clone())
+					end
+					label_offsets(true, param_flc)
+					evaluations(true, param_flc)
+					numbers(true, param_flc)
+					table.insert(params_flc, param_flc)
+				end
+				local ok, length = funcs.length(tokens[1], params_flc)
 				if ok then
 					local overwrites = {}
 					for ix = output_pointer, output_pointer + length - 1 do
@@ -465,7 +497,7 @@ local function instructions(architecture, lines)
 					end
 					to_emit[output_pointer] = {
 						emit = funcs.emit,
-						parameters = parameters,
+						parameters = params,
 						length = length,
 						emitted_by = tokens[1],
 						offset = output_pointer
@@ -484,9 +516,9 @@ local function instructions(architecture, lines)
 			elseif #tokens >= 1 and tokens[1]:is("hook") then
 				local parameters = parameters(tokens[1], tokens, 2, #tokens)
 				for ix, ix_param in ipairs(parameters) do
-					local evals_ok, ix, jx, err = evaluations(ix_param, labels)
+					local evals_ok, ix, jx, err = evaluations(false, ix_param, labels)
 					if evals_ok then
-						local numbers_ok, ix, err = numbers(ix_param)
+						local numbers_ok, ix, err = numbers(false, ix_param)
 						if not numbers_ok then
 							ix_param[ix]:blamef(printf.err, "invalid number: %s", err)
 							line_failed = true
