@@ -13,10 +13,9 @@ do
 	local script_path = debug.getinfo(1).source
 	assert(script_path:sub(1, 1) == "@", "something is fishy")
 	script_path = script_path:sub(2)
-	local slash = package.config:match("^([^\n]+)\n")
 	local slash_at
 	for ix = #script_path, 1, -1 do
-		if script_path:sub(ix, ix) == slash then
+		if script_path:sub(ix, ix):find("[\\/]") then
 			slash_at = ix
 			break
 		end
@@ -31,8 +30,8 @@ do
 	function require(modname)
 		if not loaded[modname] then
 			local try = {
-				script_path .. slash .. modname:gsub("%.", slash) .. ".lua",
-				script_path .. slash .. modname:gsub("%.", slash) .. slash .. "init.lua",
+				script_path .. "/" .. modname:gsub("%.", "/") .. ".lua",
+				script_path .. "/" .. modname:gsub("%.", "/") .. "/init.lua",
 			}
 			local msg = { "no such module", "tried:" }
 			for ix = 1, #try do
