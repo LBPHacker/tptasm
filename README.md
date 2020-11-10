@@ -43,21 +43,21 @@ arguments.
 
 All positional arguments have equivalent named counterparts.
 
-| position | name   | type             | description                      |
-| -------- | ------ | ---------------- | -------------------------------- |
-| 1        | source | string           | path to source to assemble       |
-| 2        | target | table or integer | identifier of the target CPU     |
-| 3        | log    | string or any    | path to redirect log to          |
-| 4        | model  | string           | model number                     |
-| | silent          | any     | don't log anything                        |
-| | anchor          | string  | spawn anchor for specified model          |
-| | anchor\_dx      | integer | X component of anchor direction vector    |
-| | anchor\_dy      | integer | Y component of anchor direction vector    |
-| | anchor\_prop    | string  | name of property for anchor to use        |
-| | anchor\_id      | integer | CPU identifier to encode in the anchor    |
-| | detect          | any     | list recognisable CPUs with model and ID  |
-| | allow\_model\_mismatch | any | throw only warnings instead of errors  |
-| | export\_labels  | string  | path to export labels to                  |
+| position | name   | type                     | description                  |
+| -------- | ------ | ------------------------ | ---------------------------- |
+| 1        | source | string                   | path to source to assemble   |
+| 2        | target | integer, string or table | identifier of the target CPU |
+| 3        | log    | string or handle         | path to redirect log to      |
+| 4        | model  | string                   | model number                 |
+| | silent          | any     | don't log anything                            |
+| | anchor          | string  | spawn anchor for specified model              |
+| | anchor\_dx      | integer | X component of anchor direction vector        |
+| | anchor\_dy      | integer | Y component of anchor direction vector        |
+| | anchor\_prop    | string  | name of property for anchor to use            |
+| | anchor\_id      | integer | CPU identifier to encode in the anchor        |
+| | detect          | any     | list recognisable CPUs with model and ID      |
+| | export\_labels  | string  | path to export labels to                      |
+| | allow\_model\_mismatch | any | throw only warnings instead of errors      |
 
 There's also a way to pass arguments by simply passing a table as the first
 argument. In this case its integer-keyed pairs will become the positional
