@@ -67,7 +67,10 @@ make all this clear.
 
 ### Notes on arguments
 
-- `target` is implicitly converted to an integer if it's a string
+- `target` may be a string, in which case the opcodes are dumped into the file
+  this string refers to, in little endian encoding (refer to the corresponding
+  architecture module for number of bytes in such an opcode; generally it will
+  be the opcode width passed to `opcode.make` multiplied by 4)
 - `target` may be a table, in which case the opcodes are copied into it and
   no flashing attempts occur (useful when you're using TPTASM outside TPT)
 - if `target` is not specified, the assembler looks for the first CPU that
@@ -123,7 +126,7 @@ print(opcodes[0x1337]:dump())
 
 ### Exporting labels
 
-The file referred to by `export_labels` will looks something like this
+The file referred to by `export_labels` will look something like this
 (see [examples/micro21/demo.asm](examples/micro21/demo.asm)):
 
 ```

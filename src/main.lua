@@ -143,6 +143,7 @@ xpcall(function()
 	local preprocess = require("preprocess")
 	local emit = require("emit")
 	local resolve = require("resolve")
+	local xbit32 = require("xbit32")
 
 	local named_args, unnamed_args = utility.parse_args(args)
 
@@ -172,9 +173,6 @@ xpcall(function()
 	end
 
 	local target = named_args.target or unnamed_args[2]
-	if type(target) == "string" then
-		target = tonumber(target)
-	end
 	local model_name = named_args.model or unnamed_args[4]
 
 	if not model_name then
@@ -243,6 +241,30 @@ xpcall(function()
 	if type(target) == "table" then
 		for ix, ix_opcode in pairs(opcodes) do
 			target[ix] = ix_opcode
+		end
+	elseif type(target) == "string" then
+		local buf = {}
+		local _, first = next(opcodes)
+		if first then
+			local width = #first.dwords
+			for ix, ix_opcode in pairs(opcodes) do
+				for ix_dword = 1, width do
+					local dword = ix_opcode.dwords[ix_dword]
+					buf[ix * width + ix_dword] = string.char(
+						xbit32.band(              dword     , 0xFF),
+						xbit32.band(xbit32.rshift(dword,  8), 0xFF),
+						xbit32.band(xbit32.rshift(dword, 16), 0xFF),
+						xbit32.band(xbit32.rshift(dword, 24), 0xFF)
+					)
+				end
+			end
+		end
+		local handle = io.open(target, "wb")
+		if handle then
+			handle:write(table.concat(buf))
+			handle:close()
+		else
+			printf.warn("failed to open '%s' for writing, no opcodes written", target)
 		end
 	else
 		architecture.flash(model_name, target, opcodes)
