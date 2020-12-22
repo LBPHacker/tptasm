@@ -30,7 +30,7 @@ local nop = opcode.make(29)
 
 local entities = {}
 
-local mnemonics = {
+local mnemonic_to_class_code = {
 	[ "shl"] = { class = "1V", code = 0x00 },
 	[ "shr"] = { class = "1V", code = 0x01 },
 	[ "add"] = { class = "1M", code = 0x02 },
@@ -50,7 +50,7 @@ end
 
 function mnemonic_desc.emit(mnemonic_token, parameters)
 	local final_code = nop:clone()
-	local instr_desc = mnemonics[mnemonic_token.value]
+	local instr_desc = mnemonic_to_class_code[mnemonic_token.value]
 	final_code:merge(instr_desc.code, 24)
 
 	local operands = {}
@@ -125,7 +125,7 @@ end
 local dw_bits = 29
 
 local mnemonics = {}
-for key in pairs(mnemonics) do
+for key in pairs(mnemonic_to_class_code) do
 	mnemonics[key] = mnemonic_desc
 end
 

@@ -38,7 +38,8 @@ do
 				local path = try[ix]
 				local handle = io.open(path, "r")
 				if handle then
-					loaded[modname] = setfenv(assert(loadstring(handle:read("*a"), "@" .. path)), getfenv(1))()
+					loaded[modname] = assert(setfenv(assert(loadstring(handle:read("*a"), "@" .. path)), getfenv(1))())
+					handle:close()
 					break
 				end
 				table.insert(msg, (" - %s"):format(path))
