@@ -108,7 +108,7 @@ demo_guess:              ; * Guess the number demo. Let the user think of a
     lin                  ; * If the user tells us that the number they thought
     jly .guessed_it      ;   of is equal to b, we're done.
     lin                  ; * If the user tells us that the number they thought
-    ifly                 ;   of is smaller than b, undo the merging of of the
+    ifly                 ;   of is smaller than b, undo the merging of the
     xor b, a             ;   guessing range, ruling out the upper half.
     jmp .smaller_range   ; * Then unconditionally try again with a smaller
                          ;   range to rule out another half.
@@ -172,7 +172,7 @@ subroutine:              ;   forgotten to tell anyone about :P).
     lod a, m_stack_ptr   ; * Load call stack pointer,
     sto b, a             ;   store return address to the top of the stack,
     add a, 1             ;   increment call stack pointer,
-    sto a, m_stack_ptr   ;   save the increment version back.
+    sto a, m_stack_ptr   ;   save the incremented version back.
     lod a, m_subr_addr   ; * Recall the subroutine address
     jmp a                ;   and jump to it.
 
