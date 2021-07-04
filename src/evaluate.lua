@@ -164,7 +164,7 @@ return function(tokens, cursor, last, aliases)
 		return false, pos, err
 	end
 	if #stack > 1 then
-		return false, stack[2].position, "excess value"
+		return false, stack[#stack - 1].position, "excess value"
 	end
 	if #stack < 1 then
 		return false, 1, "no value"

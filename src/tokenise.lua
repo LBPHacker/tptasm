@@ -140,12 +140,12 @@ transition.punctuator = transitions({
 })
 
 local whitespace = {
-	["\f"] = true,
-	["\n"] = true,
-	["\r"] = true,
-	["\t"] = true,
-	["\v"] = true,
-	[" "] = true
+	[("\f"):byte()] = true,
+	[("\n"):byte()] = true,
+	[("\r"):byte()] = true,
+	[("\t"):byte()] = true,
+	[("\v"):byte()] = true,
+	[(" " ):byte()] = true
 }
 
 return function(sline)
