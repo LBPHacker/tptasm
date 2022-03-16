@@ -91,7 +91,7 @@ make all this clear.
 ### Inside TPT
 
 ```lua
-tptasm = loadfile("tptasm.lua") -- load tptasm into memory as a function
+tptasm = loadfile("main.lua") -- load tptasm into memory as a function
      -- (this assumes you saved it in the same directory TPT is in)
 tptasm("/path/to/source.asm") -- assemble source
 tptasm("/path/to/source.asm", 0xDEAD) -- specify target CPU
@@ -113,12 +113,12 @@ loadfile("~/Development/tptasm/src/main.lua")("~/Development/tptasm/examples/mic
 
 ```sh
 # currently quite pointless to do but possible nonetheless
-$ ./tptasm.lua /path/to/source.asm model=R3
+$ ./main.lua /path/to/source.asm model=R3
 ```
 
 ```lua
 -- let's say this is not TPT's console
-tptasm = loadfile("tptasm.lua")
+tptasm = loadfile("main.lua")
 opcodes = {}
 tptasm({ source = "/path/to/source.asm", target = opcodes, model = "R3" })
 print(opcodes[0x1337]:dump())
