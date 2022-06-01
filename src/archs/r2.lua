@@ -324,6 +324,19 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 			end
 		end
 	end
+
+	local hardware_bugs = false
+	if mnemonic_token.value == "bump" and operands[1].type:find("^%[") then
+		hardware_bugs = true
+	end
+	if mnemonic_token.value == "send" and operands[1].type:find("^%[") then
+		hardware_bugs = true
+	end
+	if hardware_bugs then
+		mnemonic_token:blamef(printf.err, "refusing to assemble due to hardware bugs, consult the manual")
+		return false
+	end
+
 	if not final_code then
 		local operands_repr = {}
 		for _, ix_oper in ipairs(operands) do
