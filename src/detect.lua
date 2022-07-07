@@ -31,7 +31,7 @@ local function enumerate_standard(id)
 			while true do
 				offs = offs + 1
 				local ctype = prop_of(offs)
-				if not ctype then
+				if not ctype or ctype < 0 or ctype > 255 then
 					name_intact = false
 					break
 				end
@@ -123,7 +123,19 @@ local function enumerate_cpus()
 end
 
 local function all_cpus()
-	local co = coroutine.create(enumerate_cpus)
+	local co = coroutine.create(function()
+		local rethrow = false
+		xpcall(function()
+			enumerate_cpus()
+		end, function(err)
+			printf.err("error inside xpcall: %s", tostring(err))
+			printf.info("%s", debug.traceback())
+			rethrow = true
+		end)
+		if rethrow then
+			error("rethrowing error from inside xpcall")
+		end
+	end)
 	return function()
 		if coroutine.status(co) ~= "dead" then
 			local ok, x, y, id_model, id_target = coroutine.resume(co)
