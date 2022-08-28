@@ -7,6 +7,7 @@ local known_archs = {
 	[      "PTP7" ] = require("archs.ptp7"     ),
 	[        "R2" ] = require("archs.r2"       ),
 	[        "R3" ] = require("archs.r3"       ),
+	[ "Armatoste" ] = require("archs.armatoste"),
 }
 local function get_description(architecture_name)
 	return known_archs[architecture_name]
@@ -24,6 +25,7 @@ local known_models_to_archs = {
 	[   "R216K4A" ] = "R2",        -- * "R216K4A" by LBPHacker, id:2305835
 	[   "R216K8B" ] = "R2",        -- * "R216K8B" by LBPHacker, id:2342633
 	[        "R3" ] = "R3",        -- * yet unreleased architecture by LBPHacker
+	[ "Armatoste" ] = "Armatoste", -- * yet unreleased architecture by DanielUbTb
 }
 local function get_name(model_name)
 	return known_models_to_archs[model_name]
