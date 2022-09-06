@@ -19,6 +19,7 @@ Computers currently supported (in alphabetical order):
   [R216K4A](https://powdertoy.co.uk/Browse/View.html?ID=2305835) and
   [R216K8B](https://powdertoy.co.uk/Browse/View.html?ID=2342633) by LBPHacker
 - Generic R3 (unreleased, under development) by LBPHacker
+- Armatoste (unreleased, under development) by DanielUbTb
 
 ## Why?
 

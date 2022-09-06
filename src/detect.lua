@@ -8,6 +8,12 @@ local function enumerate_standard(id)
 		local dx   = xbit32.band(              dxdyprop,      0xF)
 		local dy   = xbit32.band(xbit32.rshift(dxdyprop, 4),  0xF)
 		local prop = xbit32.band(xbit32.rshift(dxdyprop, 8), 0x1F)
+		if dx > 8 then
+			dx = dx - 16
+		end
+		if dy > 8 then
+			dy = dy - 16
+		end
 		if dx == 0 and dy == 0 then
 			dx = 1
 		end
