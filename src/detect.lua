@@ -207,16 +207,18 @@ local function make_anchor(model, dxstr, dystr, propname, leetid)
 		printf.err("invalid dx")
 		return
 	end
-	if dx < 0 then
-		dx = dx + 16
+	local edx = dx
+	if edx < 0 then
+		edx = edx + 16
 	end
 	local dy = tonumber(dystr or "0")
 	if dy ~= math.floor(dy) or dy >= 8 or dy < -8 then
 		printf.err("invalid dy")
 		return
 	end
-	if dy < 0 then
-		dy = dy + 16
+	local edy = dy
+	if edy < 0 then
+		edy = edy + 16
 	end
 	local x, y = sim.adjustCoords(tpt.mousex, tpt.mousey)
 	local function spawn(offs, ty)
@@ -227,7 +229,7 @@ local function make_anchor(model, dxstr, dystr, propname, leetid)
 	end
 	sim.partProperty(spawn(-1, elem.DEFAULT_PT_FILT), prop, leetid or 1337)
 	local anchor = spawn(0, elem.DEFAULT_PT_QRTZ)
-	sim.partProperty(anchor, "tmp2", dx + dy * 0x10 + prop * 0x100)
+	sim.partProperty(anchor, "tmp2", edx + edy * 0x10 + prop * 0x100)
 	sim.partProperty(anchor, "ctype", 0x1864A205)
 	local checksum = 0
 	for ix = 1, #model do

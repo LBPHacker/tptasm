@@ -23,7 +23,7 @@ local includes = {
 			or r0, r0, r0
 		%endmacro
 
-		%macro jump Address
+		%macro jum Address
 			jal r0, Address
 		%endmacro
 
@@ -42,7 +42,7 @@ local includes = {
 			bne	te, r0, Address
 		%endmacro
 
-		%macro bgr In1, In2, Address
+		%macro ble In1, In2, Address
 			sls	te, In2, In1
 			beq	te, r0, Address
 		%endmacro
@@ -75,31 +75,37 @@ local entities = {
 	[ "r14" ] = { type = "register", offset = 14 },
 	[ "r15" ] = { type = "register", offset = 15 },
 }
+entities["ra"] = entities["r10"]
+entities["rb"] = entities["r11"]
+entities["rc"] = entities["r12"]
+entities["rd"] = entities["r13"]
+entities["re"] = entities["r14"]
+entities["rf"] = entities["r15"]
 entities["ze"] = entities["r0"]
-entities["jl"] = entities["r13"]
-entities["te"] = entities["r14"]
+entities["te"] = entities["r13"]
+entities["jl"] = entities["r14"]
 entities["sp"] = entities["r15"]
 
 local mnemonics = {}
 
 local mnemonic_to_class_code = {
-    [ "mju"  ] = { class = " BX", code = 0x20000000 },
-    [ "wmju" ] = { class = " BX", code = 0x20100000 },
-    [ "jal"  ] = { class = "A X", code = 0x21000000 },
-    [ "beq"  ] = { class = "ABX", code = 0x22000000 },
-    [ "bne"  ] = { class = "ABX", code = 0x23000000 },
-    [ "load" ] = { class = "ABX", code = 0x24000000 },
-    [ "in"   ] = { class = "ABX", code = 0x25000000 },
-    [ "stor" ] = { class = "ABX", code = 0x26000000 },
-    [ "out"  ] = { class = "ABX", code = 0x27000000 },
-    [ "add"  ] = { class = "ABX", code = 0x28000000 },
-    [ "sub"  ] = { class = "ABX", code = 0x29000000 },
-    [ "lsbl" ] = { class = "ABX", code = 0x2A000000 },
-    [ "lsbr" ] = { class = "ABX", code = 0x2B000000 },
-    [ "and"  ] = { class = "ABX", code = 0x2C000000 },
-    [ "or"   ] = { class = "ABX", code = 0x2D000000 },
-    [ "xor"  ] = { class = "ABX", code = 0x2E000000 },
-    [ "sls"  ] = { class = "ABX", code = 0x2F000000 },
+    [ "mju" ] = { class = " BX", code = 0x20000000 },
+    [ "wmj" ] = { class = " BX", code = 0x20100000 },
+    [ "jal" ] = { class = "A X", code = 0x21000000 },
+    [ "beq" ] = { class = "ABX", code = 0x22000000 },
+    [ "bne" ] = { class = "ABX", code = 0x23000000 },
+    [ "loa" ] = { class = "ABX", code = 0x24000000 },
+    [ "inn" ] = { class = "ABX", code = 0x25000000 },
+    [ "sto" ] = { class = "ABX", code = 0x26000000 },
+    [ "out" ] = { class = "ABX", code = 0x27000000 },
+    [ "add" ] = { class = "ABX", code = 0x28000000 },
+    [ "sub" ] = { class = "ABX", code = 0x29000000 },
+    [ "lbl" ] = { class = "ABX", code = 0x2A000000 },
+    [ "lbr" ] = { class = "ABX", code = 0x2B000000 },
+    [ "and" ] = { class = "ABX", code = 0x2C000000 },
+    [ "orr" ] = { class = "ABX", code = 0x2D000000 },
+    [ "xor" ] = { class = "ABX", code = 0x2E000000 },
+    [ "sls" ] = { class = "ABX", code = 0x2F000000 },
 }
 
 local mnemonic_desc = {}
@@ -192,19 +198,26 @@ for mnemonic in pairs(mnemonic_to_class_code) do
 end
 
 local function flash(model, target, opcodes)
-	if true then
-		-- TODO: nuke this
-		for ix = 0, #opcodes do
-			printf.info("OPCODE: %04X: %s", ix, opcodes[ix]:dump())
-		end
-		return
-	end
-
 	local x, y = detect.cpu(model, target)
 	if not x then
 		return
 	end
-	-- TODO
+
+	local model_data = supported_models[model]
+	local space_available = model_data.ram_width * model_data.ram_height
+	if #opcodes >= space_available then
+		printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
+		return
+	end
+
+	for row = 0, model_data.ram_height - 1 do
+		for column = 0, model_data.ram_width - 1 do
+			local id = sim.partID(x + model_data.ram_x + column, y + row - model_data.ram_y)
+			local index = row * model_data.ram_width + column
+			local opcode = opcodes[index] and opcodes[index].dwords[1] or nop.dwords[1]
+			sim.partProperty(id, "ctype", opcode)
+		end
+	end
 end
 
 return {
