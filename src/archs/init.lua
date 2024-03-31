@@ -24,9 +24,14 @@ local known_models_to_archs = {
 	[   "R216K2A" ] = "R2",        -- * "R216K2A" by LBPHacker, id:2303519
 	[   "R216K4A" ] = "R2",        -- * "R216K4A" by LBPHacker, id:2305835
 	[   "R216K8B" ] = "R2",        -- * "R216K8B" by LBPHacker, id:2342633
-	[        "R3" ] = "R3",        -- * yet unreleased architecture by LBPHacker
 	[ "Armatoste" ] = "Armatoste", -- * yet unreleased architecture by DanielUbTb
 }
+for core_count = 1, 99 do
+	for addr_bits = 11, 13 do
+		known_models_to_archs[("R3A%s%02i"):format(string.char(addr_bits + 64), core_count)] = "R3" -- * yet unreleased architecture by LBPHacker
+	end
+end
+
 local function get_name(model_name)
 	return known_models_to_archs[model_name]
 end
