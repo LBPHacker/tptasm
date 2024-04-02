@@ -17,12 +17,33 @@ local includes = {
 		%define jnae jc
 		%define je jz
 		%define jne jnz
-		%define jnle jg
-		%define jle jng
-		%define jnl jge
-		%define jl jnge
+		%define jg jnle
+		%define jng jle
+		%define jge jnl
+		%define jnge jl
 		%define jb jc
 		%define jnb jnc
+
+		%define jya jynbe
+		%define jyna jybe
+		%define jyae jync
+		%define jynae jyc
+		%define jye jyz
+		%define jyne jynz
+		%define jyg jynle
+		%define jyng jyle
+		%define jyge jynl
+		%define jynge jyl
+		%define jyb jyc
+		%define jynb jync
+
+		%macro test pri, sec
+			or r0, pri, sec
+		%endmacro
+
+		%macro cmp pri, sec
+			sub r0, pri, sec
+		%endmacro
 
 		%endif ; _COMMON_INCLUDED_
 	]==]):gsub("`([^\']+)'", function(cap)
@@ -58,16 +79,16 @@ end
 local cond_info = {
 	[    "" ] = { code = 0x00000000 },
 	[  "be" ] = { code = 0x00100000 },
-	[ "nge" ] = { code = 0x00200000 },
-	[  "ng" ] = { code = 0x00300000 },
+	[   "l" ] = { code = 0x00200000 },
+	[  "le" ] = { code = 0x00300000 },
 	[   "s" ] = { code = 0x00400000 },
 	[   "z" ] = { code = 0x00500000 },
 	[   "o" ] = { code = 0x00600000 },
 	[   "c" ] = { code = 0x00700000 },
 	[   "n" ] = { code = 0x00800000 },
 	[ "nbe" ] = { code = 0x00900000 },
-	[  "ge" ] = { code = 0x00A00000 },
-	[   "g" ] = { code = 0x00B00000 },
+	[  "nl" ] = { code = 0x00A00000 },
+	[ "nle" ] = { code = 0x00B00000 },
 	[  "ns" ] = { code = 0x00C00000 },
 	[  "nz" ] = { code = 0x00D00000 },
 	[  "no" ] = { code = 0x00E00000 },
@@ -82,23 +103,24 @@ local mnemonic_info = {
 	-- D: secondary defaults to primary
 	-- M: secondary defaults to tertiary, or r0 if tertiary is imm
 	-- E: secondary defaults to r0
-	[ "mov" ] = { traits = " PSTM", code = 0x00000000 },
-	[   "j" ] = { traits = "J STE", code = 0x01010000 },
-	[  "jy" ] = { traits = "J STE", code = 0x00010000 },
-	[  "ld" ] = { traits = " PSTE", code = 0x00020000 },
-	[ "exh" ] = { traits = "FPSTD", code = 0x00030000 },
-	[ "sub" ] = { traits = "FPSTD", code = 0x00040000 },
-	[ "sbb" ] = { traits = "FPSTD", code = 0x00050000 },
-	[ "add" ] = { traits = "FPSTD", code = 0x00060000 },
-	[ "adc" ] = { traits = "FPSTD", code = 0x00070000 },
-	[ "shl" ] = { traits = "FPSTD", code = 0x00080000 },
-	[ "shr" ] = { traits = "FPSTD", code = 0x00090000 },
-	[  "st" ] = { traits = " PSTE", code = 0x000A0000 },
-	[ "hlt" ] = { traits = "     ", code = 0x000B0000 },
-	[ "and" ] = { traits = "FPSTD", code = 0x000C0000 },
-	[  "or" ] = { traits = "FPSTD", code = 0x000D0000 },
-	[ "xor" ] = { traits = "FPSTD", code = 0x000E0000 },
-	[ "clr" ] = { traits = "FPSTD", code = 0x000F0000 },
+	-- X: syntactically swap secondary and tertiary
+	[ "mov" ] = { traits = " PSTM ", code = 0x00000000 },
+	[   "j" ] = { traits = "J STE ", code = 0x01010000 },
+	[  "jy" ] = { traits = "J STE ", code = 0x00010000 },
+	[  "ld" ] = { traits = " PSTE ", code = 0x00020000 },
+	[ "exh" ] = { traits = "FPSTD ", code = 0x00030000 },
+	[ "sub" ] = { traits = "FPSTDX", code = 0x00040000, companion_code_xor = 0x00020000, companion_add_one = true },
+	[ "sbb" ] = { traits = "FPSTDX", code = 0x00050000, companion_code_xor = 0x00020000, companion_add_one = true },
+	[ "add" ] = { traits = "FPSTD ", code = 0x00060000 },
+	[ "adc" ] = { traits = "FPSTD ", code = 0x00070000 },
+	[ "shl" ] = { traits = "FPSTD ", code = 0x00080000 },
+	[ "shr" ] = { traits = "FPSTD ", code = 0x00090000 },
+	[  "st" ] = { traits = " PSTE ", code = 0x000A0000 },
+	[ "hlt" ] = { traits = "      ", code = 0x000B0000 },
+	[ "and" ] = { traits = "FPSTD ", code = 0x000C0000 },
+	[  "or" ] = { traits = "FPSTD ", code = 0x000D0000 },
+	[ "xor" ] = { traits = "FPSTD ", code = 0x000E0000 },
+	[ "clr" ] = { traits = "FPSTDX", code = 0x000F0000, companion_code_xor = 0x00030000, companion_add_one = false },
 }
 mnemonic_info = transform(mnemonic_info, function(newtbl, key, value)
 	if value.traits:find("F") then
@@ -161,19 +183,26 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 	end
 
 	local info = mnemonic_info[mnemonic_token.value]
-	local final_code = nop:clone():merge(info.code, 0)
 	local warnings_emitted = {}
 	local named_ops = {}
 	local named_op_index = 1
-	for _, operand in ipairs(operands) do
-		if operand.type == "imm" then
+	for ix_operand = 1, #operands do
+		local operand = operands[ix_operand]
+		local tertiary_index = 3
+		if info.traits:find("X") then
+			tertiary_index = 2
+		end
+		if operand and operand.type == "imm" then
 			local trunc = 0x10000
+			if operand.value < 0 and operand.value >= -trunc / 2 then
+				operand.value = operand.value + trunc
+			end
 			if operand.value >= trunc then
 				operand.value = operand.value % trunc
 				operand.token:blamef(printf.warn, "number truncated to 16 bits")
 			end
-			if named_op_index < 3 then
-				named_op_index = 3
+			if named_op_index < tertiary_index then
+				named_op_index = tertiary_index
 			end
 		end
 		if named_op_index == 1 and not info.traits:find("P") then
@@ -189,10 +218,21 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 		named_op_index = named_op_index + 1
 	end
 
-	if info.traits:find("T") and not named_ops[3] and named_ops[2] then
+	local code = info.code
+	if info.traits:find("X") and named_ops[2] and named_ops[2].type == "imm" then
+		named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
+		named_ops[3].value = xbit32.bxor(named_ops[3].value, 0xFFFF)
+		if info.companion_add_one then
+			named_ops[3].value = xbit32.band(named_ops[3].value + 1, 0xFFFF)
+		end
+		code = xbit32.bxor(code, info.companion_code_xor)
+	elseif info.traits:find("X") and named_ops[2] and named_ops[3] then
+		named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
+	elseif not info.traits:find("X") and info.traits:find("T") and not named_ops[3] and named_ops[2] then
 		named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
 	end
 
+	local final_code = nop:clone():merge(code, 0)
 	if final_code and info.traits:find("P") then
 		if named_ops[1] then
 			final_code = final_code:merge(named_ops[1].value, 25)
@@ -225,6 +265,8 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 			else
 				final_code = final_code:merge(named_ops[3].value, 0)
 			end
+		elseif info.traits:find("X") and info.traits:find("D") and named_ops[1] then
+			final_code = final_code:merge(named_ops[1].value, 0)
 		else
 			final_code = nil
 		end

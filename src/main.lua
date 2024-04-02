@@ -9,6 +9,8 @@ if not new_env.tpt then
 end
 setfenv(1, new_env)
 
+local exit_with = 0
+
 do
 	local script_path = debug.getinfo(1).source
 	assert(script_path:sub(1, 1) == "@", "something is fishy")
@@ -276,15 +278,21 @@ xpcall(function()
 
 end, function(err)
 
-	if err ~= printf.failf then
+	if err == printf.failf then
+		exit_with = 1
+	else
 		-- * Dang.
 		printf.err("error: %s", tostring(err))
 		printf.info("%s", debug.traceback())
 		printf.info("this is an assembler bug, tell LBPHacker!")
 		printf.info("https://github.com/LBPHacker/tptasm")
+		exit_with = 2
 	end
 
 end)
 
 printf.unredirect()
 printf.info("done")
+if not tpt then
+	os.exit(exit_with)
+end
