@@ -45,6 +45,10 @@ local includes = {
 			sub r0, pri, sec
 		%endmacro
 
+		%macro nop
+			mov r0, r0, r1
+		%endmacro
+
 		%endif ; _COMMON_INCLUDED_
 	]==]):gsub("`([^\']+)'", function(cap)
 		return config.reserved[cap]
