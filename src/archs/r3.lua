@@ -38,7 +38,7 @@ local includes = {
 		%define jynb jync
 
 		%macro test pri, sec
-			or r0, pri, sec
+			and r0, pri, sec
 		%endmacro
 
 		%macro cmp pri, sec
