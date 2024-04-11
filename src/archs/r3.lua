@@ -99,7 +99,8 @@ local cond_info = {
 	[  "nc" ] = { code = 0x00F00000 },
 }
 local mnemonic_info = {
-	-- F: can update flags
+	-- F: updates flags, append s to the mnemonic to suppress them
+	-- G: can updates flags, append f to the mnemonic to enable this
 	-- J: some kind of jump (secondary is encoded as primary)
 	-- P: takes primary
 	-- S: takes secondary
@@ -108,7 +109,7 @@ local mnemonic_info = {
 	-- M: secondary defaults to tertiary, or r0 if tertiary is imm
 	-- E: secondary defaults to r0
 	-- X: syntactically swap secondary and tertiary
-	[ "mov" ] = { traits = " PSTM ", code = 0x00000000 },
+	[ "mov" ] = { traits = "GPSTM ", code = 0x00000000 },
 	[   "j" ] = { traits = "J STE ", code = 0x01010000 },
 	[  "jy" ] = { traits = "J STE ", code = 0x00010000 },
 	[  "ld" ] = { traits = " PSTE ", code = 0x00020000 },
@@ -132,6 +133,11 @@ mnemonic_info = transform(mnemonic_info, function(newtbl, key, value)
 		local nvalue = shallow_copy(value)
 		nvalue.code = xbit32.bor(nvalue.code, 0x80000000)
 		newtbl[key] = nvalue
+	elseif value.traits:find("G") then
+		newtbl[key] = value
+		local nvalue = shallow_copy(value)
+		nvalue.code = xbit32.bor(nvalue.code, 0x80000000)
+		newtbl[key .. "f"] = nvalue
 	else
 		newtbl[key] = value
 	end
@@ -189,13 +195,15 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 	local info = mnemonic_info[mnemonic_token.value]
 	local warnings_emitted = {}
 	local named_ops = {}
+
+	local code = info.code
 	local named_op_index = 1
+	local imm_index = 3
+	if info.traits:find("X") then
+		imm_index = 2
+	end
 	for ix_operand = 1, #operands do
 		local operand = operands[ix_operand]
-		local tertiary_index = 3
-		if info.traits:find("X") then
-			tertiary_index = 2
-		end
 		if operand and operand.type == "imm" then
 			local trunc = 0x10000
 			if operand.value < 0 and operand.value >= -trunc / 2 then
@@ -205,8 +213,8 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 				operand.value = operand.value % trunc
 				operand.token:blamef(printf.warn, "number truncated to 16 bits")
 			end
-			if named_op_index < tertiary_index then
-				named_op_index = tertiary_index
+			if named_op_index < imm_index then
+				named_op_index = imm_index
 			end
 		end
 		if named_op_index == 1 and not info.traits:find("P") then
@@ -221,19 +229,19 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 		named_ops[named_op_index] = operand
 		named_op_index = named_op_index + 1
 	end
-
-	local code = info.code
-	if info.traits:find("X") and named_ops[2] and named_ops[2].type == "imm" then
+	if info.traits:find("T") and not named_ops[3] and named_ops[2] then
 		named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
-		named_ops[3].value = xbit32.bxor(named_ops[3].value, 0xFFFF)
-		if info.companion_add_one then
-			named_ops[3].value = xbit32.band(named_ops[3].value + 1, 0xFFFF)
+	end
+	if info.traits:find("X") then
+		if info.traits:find("T") and named_ops[3] and named_ops[3].type == "imm" then
+			named_ops[3].value = xbit32.bxor(named_ops[3].value, 0xFFFF)
+			if info.companion_add_one then
+				named_ops[3].value = xbit32.band(named_ops[3].value + 1, 0xFFFF)
+			end
+			code = xbit32.bxor(code, info.companion_code_xor)
+		else
+			named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
 		end
-		code = xbit32.bxor(code, info.companion_code_xor)
-	elseif info.traits:find("X") and named_ops[2] and named_ops[3] then
-		named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
-	elseif not info.traits:find("X") and info.traits:find("T") and not named_ops[3] and named_ops[2] then
-		named_ops[3], named_ops[2] = named_ops[2], named_ops[3]
 	end
 
 	local final_code = nop:clone():merge(code, 0)
