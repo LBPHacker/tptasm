@@ -25,7 +25,7 @@ return function(architecture, to_emit, labels)
 						local numbers_ok, ix, err = resolve.numbers(false, ix_param)
 						if not numbers_ok then
 							ix_param[ix]:blamef(printf.err, "invalid number: %s", err)
-							emission_ok = true
+							emission_ok = false
 						end
 					else
 						ix_param[ix].value[jx]:blamef(printf.err, "evaluation failed: %s", err)
