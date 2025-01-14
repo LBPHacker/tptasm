@@ -27,8 +27,8 @@ local known_models_to_archs = {
 	[ "Armatoste" ] = "Armatoste", -- * yet unreleased architecture by DanielUbTb
 }
 for core_count = 1, 99 do
-	for addr_bits = 11, 13 do
-		known_models_to_archs[("R3A%s%02i"):format(string.char(addr_bits + 64), core_count)] = "R3" -- * yet unreleased architecture by LBPHacker
+	for memory_rows = 1, 64 do
+		known_models_to_archs[("R3A%02i%02i"):format(memory_rows, core_count)] = "R3" -- * yet unreleased architecture by LBPHacker
 	end
 end
 

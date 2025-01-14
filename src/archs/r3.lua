@@ -307,10 +307,10 @@ local function flash(model, target, opcodes)
 		return
 	end
 
-	local addr_bits_str, core_count_str = assert(model:match("^R3A(.)(..)$"))
-	local addr_bits = addr_bits_str:byte() - 64
+	local memory_rows_str, core_count_str = assert(model:match("^R3A(..)(..)$"))
+	local memory_rows = tonumber(memory_rows_str)
 	local core_count = tonumber(core_count_str)
-	local space_available = xbit32.lshift(1, addr_bits)
+	local space_available = memory_rows * 128
 	if #opcodes >= space_available then
 		printf.err("out of space; code takes %i cells, only have %i", #opcodes + 1, space_available)
 		return
