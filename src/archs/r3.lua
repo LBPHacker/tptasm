@@ -100,8 +100,9 @@ local cond_info = {
 }
 local mnemonic_info = {
 	-- F: updates flags, append s to the mnemonic to suppress them
-	-- G: can updates flags, append f to the mnemonic to enable this
+	-- G: can update flags, append f to the mnemonic to enable this
 	-- J: some kind of jump (secondary is encoded as primary)
+	-- H: some kind of shift (immediate is limited to 4 bits)
 	-- P: takes primary
 	-- S: takes secondary
 	-- T: takes tertiary
@@ -109,23 +110,26 @@ local mnemonic_info = {
 	-- M: secondary defaults to tertiary, or r0 if tertiary is imm
 	-- E: secondary defaults to r0
 	-- X: syntactically swap secondary and tertiary
-	[ "mov" ] = { traits = "GPSTM ", code = 0x00000000 },
-	[   "j" ] = { traits = "J STE ", code = 0x01010000 },
-	[  "jy" ] = { traits = "J STE ", code = 0x00010000 },
-	[  "ld" ] = { traits = " PSTE ", code = 0x00020000 },
-	[ "exh" ] = { traits = "FPSTD ", code = 0x00030000 },
-	[ "sub" ] = { traits = "FPSTDX", code = 0x00040000, companion_code_xor = 0x00020000, companion_add_one = true },
-	[ "sbb" ] = { traits = "FPSTDX", code = 0x00050000, companion_code_xor = 0x00020000, companion_add_one = true },
-	[ "add" ] = { traits = "FPSTD ", code = 0x00060000 },
-	[ "adc" ] = { traits = "FPSTD ", code = 0x00070000 },
-	[ "shl" ] = { traits = "FPSTD ", code = 0x00080000 },
-	[ "shr" ] = { traits = "FPSTD ", code = 0x00090000 },
-	[  "st" ] = { traits = " PSTE ", code = 0x000A0000 },
-	[ "hlt" ] = { traits = "      ", code = 0x000B0000 },
-	[ "and" ] = { traits = "FPSTD ", code = 0x000C0000 },
-	[  "or" ] = { traits = "FPSTD ", code = 0x000D0000 },
-	[ "xor" ] = { traits = "FPSTD ", code = 0x000E0000 },
-	[ "clr" ] = { traits = "FPSTDX", code = 0x000F0000, companion_code_xor = 0x00030000, companion_add_one = false },
+	[  "mov" ] = { traits = "GPSTM  ", code = 0x00000000 },
+	[    "j" ] = { traits = "J STE  ", code = 0x01010000 },
+	[   "jy" ] = { traits = "J STE  ", code = 0x00010000 },
+	[   "ld" ] = { traits = " PSTE  ", code = 0x00020000 },
+	[  "exh" ] = { traits = "FPSTD  ", code = 0x00030000 },
+	[  "sub" ] = { traits = "FPSTDX ", code = 0x00040000, companion_code_xor = 0x00020000, companion_add_one = true },
+	[  "sbb" ] = { traits = "FPSTDX ", code = 0x00050000, companion_code_xor = 0x00020000, companion_add_one = true },
+	[  "add" ] = { traits = "FPSTD  ", code = 0x00060000 },
+	[  "adc" ] = { traits = "FPSTD  ", code = 0x00070000 },
+	[   "or" ] = { traits = "FPSTD  ", code = 0x00090000 },
+	[  "xor" ] = { traits = "FPSTD  ", code = 0x00080000 },
+	[   "st" ] = { traits = " PSTE  ", code = 0x000A0000 },
+	[  "shl" ] = { traits = "FPSTD H", code = 0x000B0000 },
+	[  "shr" ] = { traits = "FPSTD H", code = 0x000B8000 },
+	[  "and" ] = { traits = "FPSTD  ", code = 0x000C0000 },
+	[  "hlt" ] = { traits = "       ", code = 0x000D0000 },
+	[  "mul" ] = { traits = " PST   ", code = 0x000E0000 },
+	[ "mulh" ] = { traits = " PST   ", code = 0x000F0000 },
+	[ "muls" ] = { traits = " PST   ", code = 0x800E0000 },
+	[ "mulx" ] = { traits = " PST   ", code = 0x800F0000 },
 }
 mnemonic_info = transform(mnemonic_info, function(newtbl, key, value)
 	if value.traits:find("F") then
@@ -205,13 +209,17 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 	for ix_operand = 1, #operands do
 		local operand = operands[ix_operand]
 		if operand and operand.type == "imm" then
-			local trunc = 0x10000
+			local trunc_bits = 16
+			if info.traits:find("H") then
+				trunc_bits = 4
+			end
+			local trunc = 2 ^ trunc_bits
 			if operand.value < 0 and operand.value >= -trunc / 2 then
 				operand.value = operand.value + trunc
 			end
 			if operand.value >= trunc then
 				operand.value = operand.value % trunc
-				operand.token:blamef(printf.warn, "number truncated to 16 bits")
+				operand.token:blamef(printf.warn, "number truncated to %i bits", trunc_bits)
 			end
 			if named_op_index < imm_index then
 				named_op_index = imm_index
