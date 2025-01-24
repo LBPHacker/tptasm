@@ -330,6 +330,9 @@ local function flash(model, target, opcodes)
 		local index_x = index % row_size
 		local index_y = math.floor(index / row_size)
 		local opcode = opcodes[index] and opcodes[index].dwords[1] or xbit32.bor(xbit32.band(xbit32.bxor(index_y, index_x), 0xFFFF), 0x00308000)
+		if xbit32.band(opcode, 0x3FFFFFFF) == 0 then
+			opcode = xbit32.bxor(opcode, 0x20000000)
+		end
 		sim.partProperty(sim.partID(x + index_x - 41, y + index_y - 13 - row_count - core_count * 6), "ctype", opcode)
 	end
 end
