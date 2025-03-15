@@ -68,15 +68,14 @@ return function(tokens, cursor, last, aliases)
 					operands[ix] = operands[ix].value
 				elseif operands[ix].type == "alias" then
 					local alias = operands[ix].value
-					if alias then
-						local ok, number
-						if #alias == 1 then
-							ok, number = alias[1]:parse_number()
-						end
-						operands[ix] = ok and number or 1
-					else
-						operands[ix] = 0
+					local ok, number
+					if #alias == 1 then
+						ok, number = alias[1]:parse_number()
 					end
+					if not ok then
+						return false, operands[ix].position, ("operand %i does not expand to a number"):format(ix)
+					end
+					operands[ix] = number
 				else
 					return false, operands[ix].position, ("operand %i is %s, should be number"):format(ix, operands[ix].type)
 				end
@@ -144,10 +143,10 @@ return function(tokens, cursor, last, aliases)
 				return false, pos, err
 			end
 
-		elseif tokens[cursor]:identifier() then
+		elseif tokens[cursor]:identifier() and aliases[tokens[cursor].value] then
 			table.insert(stack, {
 				type = "alias",
-				value = aliases[tokens[cursor].value] or false,
+				value = aliases[tokens[cursor].value],
 				position = cursor,
 				depth = 1
 			})

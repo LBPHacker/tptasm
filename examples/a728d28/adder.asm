@@ -1,5 +1,7 @@
 _Model "A728D28[0A]"     ; * Specify target model.
 
+%include "common"
+
 start:
     ldb                  ; * Get a number and
     st r0 | ldb          ;   store it in r0, then get another and
