@@ -115,8 +115,8 @@ local mnemonic_info = {
 	[   "jy" ] = { traits = "J STE  ", code = 0x00010000 },
 	[   "ld" ] = { traits = " PSTE  ", code = 0x00020000 },
 	[  "exh" ] = { traits = "FPSTD  ", code = 0x00030000 },
-	[  "sub" ] = { traits = "FPSTDX ", code = 0x00040000, companion_code_xor = 0x00020000, companion_add_one = true },
-	[  "sbb" ] = { traits = "FPSTDX ", code = 0x00050000, companion_code_xor = 0x00020000, companion_add_one = true },
+	[  "sub" ] = { traits = "FPSTDX ", code = 0x00040000, companion_code_xor = 0x00020000, companion_add_one = true  },
+	[  "sbb" ] = { traits = "FPSTDX ", code = 0x00050000, companion_code_xor = 0x00020000, companion_add_one = false },
 	[  "add" ] = { traits = "FPSTD  ", code = 0x00060000 },
 	[  "adc" ] = { traits = "FPSTD  ", code = 0x00070000 },
 	[   "or" ] = { traits = "FPSTD  ", code = 0x00090000 },
@@ -206,9 +206,11 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 	if info.traits:find("X") then
 		imm_index = 2
 	end
+	local imm_count = 0
 	for ix_operand = 1, #operands do
 		local operand = operands[ix_operand]
 		if operand and operand.type == "imm" then
+			imm_count = imm_count + 1
 			local trunc_bits = 16
 			if info.traits:find("H") then
 				trunc_bits = 4
@@ -253,6 +255,9 @@ function mnemonic_desc.emit(mnemonic_token, parameters)
 	end
 
 	local final_code = nop:clone():merge(code, 0)
+	if imm_count > 1 then
+		final_code = nil
+	end
 	if final_code and info.traits:find("P") then
 		if named_ops[1] then
 			final_code = final_code:merge(named_ops[1].value, 25)
