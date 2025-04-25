@@ -1,7 +1,8 @@
-local config = require("config")
-local opcode = require("opcode")
-local detect = require("detect")
-local xbit32 = require("xbit32")
+local printf = require("tptasm.printf")
+local config = require("tptasm.config")
+local opcode = require("tptasm.opcode")
+local detect = require("tptasm.detect")
+local xbit32 = require("tptasm.xbit32")
 
 local macros_str
 local macros_arr = {}

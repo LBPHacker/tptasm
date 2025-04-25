@@ -1,4 +1,4 @@
-local xbit32 = require("xbit32")
+local xbit32 = require("tptasm.xbit32")
 
 local opcode_i = {}
 local opcode_mt = { __index = opcode_i }

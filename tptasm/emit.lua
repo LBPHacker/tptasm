@@ -1,4 +1,5 @@
-local resolve = require("resolve")
+local printf  = require("tptasm.printf")
+local resolve = require("tptasm.resolve")
 
 return function(architecture, to_emit, labels)
 	local opcodes = {}

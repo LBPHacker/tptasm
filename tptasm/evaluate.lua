@@ -1,5 +1,5 @@
-local config = require("config")
-local xbit32 = require("xbit32")
+local config = require("tptasm.config")
+local xbit32 = require("tptasm.xbit32")
 
 local operator_funcs = {
 	[">="] = { params = { "number", "number" }, does = function(a, b) return (a >= b) and 1 or 0 end },

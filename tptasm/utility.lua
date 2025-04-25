@@ -1,3 +1,5 @@
+local printf = require("tptasm.printf")
+
 local function get_line(up)
 	local _, err = pcall(error, "@", up + 2)
 	return err:match("^(.-)%s*:%s*@$")

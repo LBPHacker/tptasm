@@ -1,7 +1,8 @@
-local config = require("config")
-local evaluate = require("evaluate")
-local utility = require("utility")
-local xbit32 = require("xbit32")
+local printf   = require("tptasm.printf")
+local config   = require("tptasm.config")
+local evaluate = require("tptasm.evaluate")
+local utility  = require("tptasm.utility")
+local xbit32   = require("tptasm.xbit32")
 
 local function parameters(before, expanded, first, last)
 	local parameters = {}

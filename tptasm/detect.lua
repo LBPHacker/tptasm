@@ -1,4 +1,5 @@
-local xbit32 = require("xbit32")
+local printf = require("tptasm.printf")
+local xbit32 = require("tptasm.xbit32")
 
 local function enumerate_standard(id)
 	if  sim.partProperty(id, "ctype") == 0x1864A205
@@ -89,7 +90,7 @@ end
 
 local enumerate_micro21 = enumerate_nope
 local enumerate_maps = enumerate_nope
-if tpt then
+if _G.tpt then
 	enumerate_micro21 = enumerate_legacy("MICRO21", {
 		{  nil, nil, elem.DEFAULT_PT_DTEC, elem.DEFAULT_PT_DSTW },
 		{ -181, 292, elem.DEFAULT_PT_DMND,                false },
@@ -117,7 +118,7 @@ if tpt then
 end
 
 local function enumerate_cpus()
-	if not tpt then
+	if not _G.tpt then
 		printf.err("not running inside TPT, can't find target")
 		return
 	end
@@ -165,7 +166,7 @@ local function detect_filter(filter)
 			})
 		end
 	end
-	if tpt then
+	if _G.tpt then
 		local mx, my = sim.adjustCoords(tpt.mousex, tpt.mousey)
 		for _, candidate in ipairs(candidates) do
 			if candidate.x == mx and candidate.y == my then
@@ -199,7 +200,7 @@ local function model(target_in)
 end
 
 local function make_anchor(model, dxstr, dystr, propname, leetid)
-	if not tpt then
+	if not _G.tpt then
 		printf.err("not running inside TPT, can't spawn anchor")
 		return
 	end

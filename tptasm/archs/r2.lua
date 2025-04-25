@@ -1,6 +1,7 @@
-local config = require("config")
-local opcode = require("opcode")
-local detect = require("detect")
+local printf = require("tptasm.printf")
+local config = require("tptasm.config")
+local opcode = require("tptasm.opcode")
+local detect = require("tptasm.detect")
 
 local includes = {
 	["common"] = ([==[

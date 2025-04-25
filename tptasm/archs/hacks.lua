@@ -1,3 +1,5 @@
+local printf = require("tptasm.printf")
+
 local function pig(mnemonic_token_hax, parameters_hax, mnemonics)
 	local sub_instructions = {}
 

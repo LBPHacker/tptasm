@@ -1,8 +1,9 @@
-local config = require("config")
-local evaluate = require("evaluate")
-local resolve = require("resolve")
-local tokenise = require("tokenise")
-local utility = require("utility")
+local printf   = require("tptasm.printf")
+local config   = require("tptasm.config")
+local evaluate = require("tptasm.evaluate")
+local resolve  = require("tptasm.resolve")
+local tokenise = require("tptasm.tokenise")
+local utility  = require("tptasm.utility")
 
 local source_line_i = {}
 local source_line_mt = { __index = source_line_i }

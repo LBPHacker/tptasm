@@ -1,8 +1,9 @@
-local config = require("config")
-local opcode = require("opcode")
-local detect = require("detect")
-local xbit32 = require("xbit32")
-local hacks = require("archs.hacks")
+local printf = require("tptasm.printf")
+local config = require("tptasm.config")
+local opcode = require("tptasm.opcode")
+local detect = require("tptasm.detect")
+local xbit32 = require("tptasm.xbit32")
+local hacks  = require("tptasm.archs.hacks")
 
 local arch_i8m7d28s = {}
 

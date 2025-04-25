@@ -1,3 +1,5 @@
+local printf = require("tptasm.printf")
+
 local token_i = {}
 local token_mt = { __index = token_i }
 

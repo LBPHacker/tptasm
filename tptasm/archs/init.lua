@@ -1,13 +1,13 @@
 local known_archs = {
-	[   "A728D28" ] = require("archs.a728d28"  ),
-	[ "B29K1QS60" ] = require("archs.b29k1qs60"),
-	[  "I8M7D28S" ] = require("archs.i8m7d28s" ),
-	[      "MAPS" ] = require("archs.maps"     ),
-	[   "MICRO21" ] = require("archs.micro21"  ),
-	[      "PTP7" ] = require("archs.ptp7"     ),
-	[        "R2" ] = require("archs.r2"       ),
-	[        "R3" ] = require("archs.r3"       ),
-	[ "Armatoste" ] = require("archs.armatoste"),
+	[   "A728D28" ] = require("tptasm.archs.a728d28"  ),
+	[ "B29K1QS60" ] = require("tptasm.archs.b29k1qs60"),
+	[  "I8M7D28S" ] = require("tptasm.archs.i8m7d28s" ),
+	[      "MAPS" ] = require("tptasm.archs.maps"     ),
+	[   "MICRO21" ] = require("tptasm.archs.micro21"  ),
+	[      "PTP7" ] = require("tptasm.archs.ptp7"     ),
+	[        "R2" ] = require("tptasm.archs.r2"       ),
+	[        "R3" ] = require("tptasm.archs.r3"       ),
+	[ "Armatoste" ] = require("tptasm.archs.armatoste"),
 }
 local function get_description(architecture_name)
 	return known_archs[architecture_name]
