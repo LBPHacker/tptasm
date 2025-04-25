@@ -29,9 +29,6 @@ computers with this one instead.
 
 ## How?
 
-[Click here](#tldr) for steps to take if you have no idea what's going on and
-just want to finally program a computer.
-
 You can run the assembler from TPT or really in any environment that's
 compatible with Lua 5.1. Running it from TPT has the benefit of actually
 allowing you to program computers.
@@ -91,39 +88,67 @@ make all this clear.
 
 ### Inside TPT
 
+Install the [Script Manager](https://powdertoy.co.uk/Discussions/Thread/View.html?Thread=19400),
+then install [TPTASM](https://starcatcher.us/scripts?view=316) with it. Once done, usage is as simple as:
+
 ```lua
-tptasm = loadfile("main.lua") -- load tptasm into memory as a function
-     -- (this assumes you saved it in the same directory TPT is in)
+-- install TPTASM with the script manager
+-- see https://starcatcher.us/scripts?view=316
 tptasm("/path/to/source.asm") -- assemble source
 tptasm("/path/to/source.asm", 0xDEAD) -- specify target CPU
 tptasm("/path/to/source.asm", nil, "log.log") -- specify file to log output to
 tptasm("/path/to/source.asm", nil, nil, "R3") -- specify model name
 ```
 
-#### Complete example
-
-Assuming this repository has been cloned to `~/Development/tptasm`, navigate to
+For example, download [micro21/demo.asm](examples/micro21/demo.asm), navigate to
 [save id:1599945](https://powdertoy.co.uk/Browse/View.html?ID=1599945) and
 execute this:
 
 ```lua
-loadfile("~/Development/tptasm/src/main.lua")("~/Development/tptasm/examples/micro21/demo.asm")
+tptasm("/path/to/downloads/micro21/demo.asm") -- adjust /path/to/downloads to match your system
 ```
 
-### Somewhere else
-
-```sh
-# currently quite pointless to do but possible nonetheless
-$ ./main.lua /path/to/source.asm model=R3
-```
+Advanced functionality example:
 
 ```lua
--- let's say this is not TPT's console
-tptasm = loadfile("main.lua")
+-- let's say this is not TPT's console but some script executed in TPT by some other means
 opcodes = {}
 tptasm({ source = "/path/to/source.asm", target = opcodes, model = "R3" })
 print(opcodes[0x1337]:dump())
 ```
+
+### Somewhere else, for normal usage
+
+Download the latest release and use `loadfile` to get access to the `tptasm`
+function in any Lua environment:
+
+```lua
+tptasm = loadfile("/path/to/tptasm.lua")
+```
+
+Releases from this repo are also what get published on the Script Manager, so
+if you have already installed TPTASM with the Script Manager, you can just use
+it directly from TPT's data folder.
+
+Command line usage is also possible:
+
+```
+$ luajit /path/to/tptasm.lua ...
+```
+
+### Somewhere else, for development purposes
+
+Assuming the current directory is this repo, submodules have been fetched with
+`git submodule update --init`, and [LuaJIT](https://luajit.org/) or some other
+Lua 5.x version has been installed:
+
+```sh
+# currently quite pointless to do but possible nonetheless
+$ luajit TPT-Script-Manager/modulepack.lua modulepack.conf run /path/to/source.asm model=R3
+```
+
+TPTASM can be run from other current directories by passing modulepack.lua and
+modulepack.conf with appropriately relative or absolute paths.
 
 ### Exporting labels
 
@@ -143,43 +168,6 @@ demo_odds.count_odds 0x3B
 
 That is, it'll have one fully qualified label and the corresponding address
 in hexadecimal per line, separated by one space character.
-
-### TL;DR
-
-1. find the green button on this page which looks like it might let you
-   download something; clicking it gives you a popup with an option somewhere
-   to download a ZIP
-1. download said ZIP and extract it somewhere, then find the src folder inside
-   and rename it to tptasm
-1. open the settings menu in TPT, scroll down and click Open Data Folder;
-   move the tptasm folder from earlier to the one that TPT just opened
-1. have the code you want to assemble saved to a file (say, `code.asm`) and
-   move said file, once again, to the folder TPT just opened
-1. open the save in TPT with the computer you want to program
-1. if there are multiple computers in the save, find the one and only QRTZ
-   particle in the computer you want to program (possibly with the Find mode,
-   `Ctrl+F`) and move your cursor over it (use a `1x1` brush)
-1. open the console (with `~` or the `[C]` button on the right side of the
-   window) and execute the following:
-
-   ```lua
-   loadfile("tptasm/main.lua")("code.asm")
-   ```
-
-1. if `[tptasm] done` is the only thing you see, your code assembled
-   and you're done!
-1. if `[tptasm] done` is not the only thing you see, you may want to save the
-   log to a file for inspection; you can do this by executing this instead:
-
-   ```lua
-   loadfile("tptasm/main.lua")("code.asm", nil, "log.log")
-   ```
-
-   ... which will create a file named log.log in the folder TPT opened; open
-   this file in a text editor to see why your code didn't assemble
-1. if the file shows something like "this is an error, tell LBPHacker", then
-   tell me!
-
 
 ## Then?
 
