@@ -1,5 +1,6 @@
-local printf = require("tptasm.printf")
-local xbit32 = require("tptasm.xbit32")
+local modulepack = require("modulepack")
+local printf     = require("tptasm.printf")
+local xbit32     = require("tptasm.xbit32")
 
 local function enumerate_standard(id)
 	if  sim.partProperty(id, "ctype") == 0x1864A205
@@ -132,7 +133,7 @@ end
 local function all_cpus()
 	local co = coroutine.create(function()
 		local rethrow = false
-		xpcall_wrap(function()
+		modulepack.xpcall_wrap(function()
 			enumerate_cpus()
 		end, function(err)
 			rethrow = true

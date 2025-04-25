@@ -1,5 +1,6 @@
-local printf  = require("tptasm.printf")
-local utility = require("tptasm.utility")
+local modulepack = require("modulepack")
+local printf     = require("tptasm.printf")
+local utility    = require("tptasm.utility")
 
 local function main(...)
 	local exit_with = 0
@@ -11,7 +12,7 @@ local function main(...)
 	end
 
 	local args = { ... }
-	xpcall_wrap(function()
+	modulepack.xpcall_wrap(function()
 
 		local detect = require("tptasm.detect")
 		local archs = require("tptasm.archs")
@@ -172,7 +173,7 @@ end
 
 local function run(...)
 	if _G.tpt and select("#", ...) == 0 then
-		_G.tptasm = xpcall_wrap(main)
+		_G.tptasm = modulepack.xpcall_wrap(main)
 		return
 	end
 	return main(...)
