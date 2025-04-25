@@ -1,14 +1,8 @@
 local printf  = require("tptasm.printf")
 local utility = require("tptasm.utility")
 
-local function run(...)
+local function main(...)
 	local exit_with = 0
-
-	local args = { ... }
-	if _G.tpt and select("#", ...) == 0 then
-		_G.tptasm = run
-		return exit_with
-	end
 
 	printf.update_colour()
 	local old_print = print
@@ -16,7 +10,8 @@ local function run(...)
 		printf.debug(utility.get_line(2), ...)
 	end
 
-	xpcall(function()
+	local args = { ... }
+	xpcall_wrap(function()
 
 		local detect = require("tptasm.detect")
 		local archs = require("tptasm.archs")
@@ -159,14 +154,12 @@ local function run(...)
 			exit_with = 1
 		else
 			-- * Dang.
-			printf.err("error: %s", tostring(err))
-			printf.info("%s", debug.traceback())
 			printf.info("this is an assembler bug, tell LBPHacker!")
 			printf.info("https://github.com/LBPHacker/tptasm")
 			exit_with = 2
 		end
 
-	end)
+	end)()
 
 	printf.unredirect()
 	printf.info("done")
@@ -175,6 +168,14 @@ local function run(...)
 		os.exit(exit_with)
 	end
 	return exit_with
+end
+
+local function run(...)
+	if _G.tpt and select("#", ...) == 0 then
+		_G.tptasm = xpcall_wrap(main)
+		return
+	end
+	return main(...)
 end
 
 return {

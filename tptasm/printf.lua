@@ -1,4 +1,5 @@
-local printf = setmetatable({
+local printf
+printf = setmetatable({
 	print = print,
 	print_old = print,
 	log_handle = false,

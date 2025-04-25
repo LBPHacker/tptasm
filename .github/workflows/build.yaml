@@ -1,0 +1,22 @@
+name: build
+
+on:
+  push:
+    tags:
+      - 'v1.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash -c './.github/create-release.sh'
+      - run: sudo apt update && sudo apt install luajit
+      - run: ./.github/dist.sh ${{ github.ref }}
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET_PATH: dist/tptasm.dist.lua
+          ASSET_NAME: tptasm.lua
+        run: bash -c './.github/upload-release-asset.sh'

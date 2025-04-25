@@ -132,13 +132,11 @@ end
 local function all_cpus()
 	local co = coroutine.create(function()
 		local rethrow = false
-		xpcall(function()
+		xpcall_wrap(function()
 			enumerate_cpus()
 		end, function(err)
-			printf.err("error inside xpcall: %s", tostring(err))
-			printf.info("%s", debug.traceback())
 			rethrow = true
-		end)
+		end)()
 		if rethrow then
 			error("rethrowing error from inside xpcall")
 		end
