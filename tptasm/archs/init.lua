@@ -28,7 +28,7 @@ local known_models_to_archs = {
 }
 for core_count = 1, 99 do
 	for memory_rows = 1, 64 do
-		known_models_to_archs[("R3A%02i%02i"):format(memory_rows, core_count)] = "R3" -- * yet unreleased architecture by LBPHacker
+		known_models_to_archs[("R3A%02i%02i"):format(memory_rows, core_count)] = "R3" -- * "R3A1016" et al by LBPHacker, id:3236906
 	end
 end
 
