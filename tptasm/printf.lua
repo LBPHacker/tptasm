@@ -1,11 +1,11 @@
 local printf
 printf = setmetatable({
-	print = print,
-	print_old = print,
+	print      = print,
+	print_old  = print,
 	log_handle = false,
-	colour = false,
+	colour     = false,
 	err_called = false,
-	silent = false
+	silent     = false
 }, { __call = function(self, ...)
 	if not printf.silent then
 		printf.print(string.format(...))
@@ -62,6 +62,12 @@ end
 
 function printf.update_colour()
 	printf.colour = _G.tpt and not printf.log_handle
+end
+
+function printf.init()
+	printf.update_colour()
+	printf.err_called = false
+	printf.silent = false
 end
 
 function printf.failf(...)

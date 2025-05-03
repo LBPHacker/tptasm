@@ -5,7 +5,7 @@ local utility    = require("tptasm.utility")
 local function main(...)
 	local exit_with = 0
 
-	printf.update_colour()
+	printf.init()
 	local old_print = print
 	function print(...)
 		printf.debug(utility.get_line(2), ...)
