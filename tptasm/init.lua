@@ -6,10 +6,6 @@ local function main(...)
 	local exit_with = 0
 
 	printf.init()
-	local old_print = print
-	function print(...)
-		printf.debug(utility.get_line(2), ...)
-	end
 
 	local args = { ... }
 	modulepack.xpcall_wrap(function()
@@ -164,7 +160,6 @@ local function main(...)
 
 	printf.unredirect()
 	printf.info("done")
-	print = old_print
 	if not _G.tpt then
 		os.exit(exit_with)
 	end
