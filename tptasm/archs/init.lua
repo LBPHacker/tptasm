@@ -8,6 +8,7 @@ local known_archs = {
 	[        "R2" ] = require("tptasm.archs.r2"       ),
 	[        "R3" ] = require("tptasm.archs.r3"       ),
 	[ "Armatoste" ] = require("tptasm.archs.armatoste"),
+	[      "BSAC" ] = require("tptasm.archs.bsac"     ),
 }
 local function get_description(architecture_name)
 	return known_archs[architecture_name]
@@ -25,6 +26,7 @@ local known_models_to_archs = {
 	[   "R216K4A" ] = "R2",        -- * "R216K4A" by LBPHacker, id:2305835
 	[   "R216K8B" ] = "R2",        -- * "R216K8B" by LBPHacker, id:2342633
 	[ "Armatoste" ] = "Armatoste", -- * yet unreleased architecture by DanielUbTb
+	[   "BSAC304" ] = "BSAC",      -- * "CL304: Jump" by Isidor10, id:3361819
 }
 for core_count = 1, 99 do
 	for memory_rows = 1, 64 do
