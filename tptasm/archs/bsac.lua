@@ -111,6 +111,9 @@ local function flash(model, target, opcodes)
 		local opcode = opcodes[index] and opcodes[index].dwords[1] or 0x11FFFFFF
 		sim.partProperty(id, "ctype", opcode)
 	end
+
+	local pc_id = sim.partID(x + 19, y - 16)
+	sim.partProperty(pc_id, "ctype", 0x10000000)
 end
 
 return {
