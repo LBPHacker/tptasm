@@ -23,21 +23,21 @@ local includes = {
 
 local dw_bits = 30
 
-local nop = opcode.make(32):merge(0x10000000, 0)
+local nop = opcode.make(32):merge(0, 0)
 
 local entities = {}
 local mnemonics = {}
 
 local mnemonic_to_class_code = {
-    [ "add"  ] = { operands = 1, code = 0x14000000 },
-    [ "sub"  ] = { operands = 1, code = 0x16000000 },
-    [ "upd"  ] = { operands = 1, code = 0x20000000 },
-    [ "upd0" ] = { operands = 1, code = 0x22000000 },
-    [ "nop"  ] = { operands = 0, code = 0x10000000 },
-    [ "halt" ] = { operands = 0, code = 0x3E000000 },
-    [ "jlz"  ] = { operands = 1, code = 0x02000000 },
-    [ "jgz"  ] = { operands = 1, code = 0x04000000 },
-    [ "jez"  ] = { operands = 1, code = 0x06000000 },
+    [ "A" ] = { operands = 1, code = 0x14000000 },
+    [ "S" ] = { operands = 1, code = 0x16000000 },
+    [ "U" ] = { operands = 1, code = 0x20000000 },
+    [ "T" ] = { operands = 1, code = 0x22000000 },
+    [ "X" ] = { operands = 0, code = 0x10000000 },
+    [ "Z" ] = { operands = 0, code = 0x3E000000 },
+    [ "G" ] = { operands = 1, code = 0x02000000 },
+    [ "E" ] = { operands = 1, code = 0x04000000 },
+    [ "J" ] = { operands = 1, code = 0x06000000 },
 }
 
 local mnemonic_desc = {}
@@ -107,8 +107,8 @@ local function flash(model, target, opcodes)
 	end
 
 	for index = 0, space_available - 1 do
-		local id = sim.partID(x + 525 - index, y - 137)
-		local opcode = opcodes[index] and opcodes[index].dwords[1] or nop.dwords[1]
+		local id = sim.partID(x + 16 - index, y + 4)
+		local opcode = opcodes[index] and opcodes[index].dwords[1] or 0x11FFFFFF
 		sim.partProperty(id, "ctype", opcode)
 	end
 end

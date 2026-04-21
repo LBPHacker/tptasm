@@ -1,21 +1,21 @@
 %include "common"
 
 start:
-    upd0 A
-    add _1
-    upd A
-    add _1
-    upd B
+    T var_x
+    A const_1
+    U var_x
+    A const_1
+    U var_y
 loop:
-    add A
-    upd A
-    add B
-    upd B
-    jgz loop
-    halt
-_1:
+    A var_x
+    U var_x
+    A var_y
+    U var_y
+    E loop
+    Z
+const_1:
     data 1
-A:
+var_x:
     data 0
-B:
+var_y:
     data 0
