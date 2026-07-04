@@ -6,9 +6,11 @@ return function(architecture, to_emit, labels)
 	do
 		local max_pointer = 0
 		for _, rec in pairs(to_emit) do
-			local after_end = rec.offset + rec.length
-			if max_pointer < after_end then
-				max_pointer = after_end
+			if rec.offset then
+				local after_end = rec.offset + rec.length
+				if max_pointer < after_end then
+					max_pointer = after_end
+				end
 			end
 		end
 		for ix = 0, max_pointer - 1 do

@@ -122,12 +122,16 @@ local function main(...)
 				for ix, ix_opcode in pairs(opcodes) do
 					for ix_dword = 1, width do
 						local dword = ix_opcode.dwords[ix_dword]
-						buf[ix * width + ix_dword] = string.char(
-							xbit32.band(              dword     , 0xFF),
-							xbit32.band(xbit32.rshift(dword,  8), 0xFF),
-							xbit32.band(xbit32.rshift(dword, 16), 0xFF),
-							xbit32.band(xbit32.rshift(dword, 24), 0xFF)
-						)
+						if architecture.dw_bits == 8 then
+							buf[ix * width + ix_dword] = string.char(dword)
+						else
+							buf[ix * width + ix_dword] = string.char(
+								xbit32.band(              dword     , 0xFF),
+								xbit32.band(xbit32.rshift(dword,  8), 0xFF),
+								xbit32.band(xbit32.rshift(dword, 16), 0xFF),
+								xbit32.band(xbit32.rshift(dword, 24), 0xFF)
+							)
+						end
 					end
 				end
 			end

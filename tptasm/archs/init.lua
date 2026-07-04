@@ -7,6 +7,7 @@ local known_archs = {
 	[      "PTP7" ] = require("tptasm.archs.ptp7"     ),
 	[        "R2" ] = require("tptasm.archs.r2"       ),
 	[        "R3" ] = require("tptasm.archs.r3"       ),
+	[        "R4" ] = require("tptasm.archs.r4"       ),
 	[ "Armatoste" ] = require("tptasm.archs.armatoste"),
 	[      "BSAC" ] = require("tptasm.archs.bsac"     ),
 }
@@ -31,6 +32,13 @@ local known_models_to_archs = {
 for core_count = 1, 99 do
 	for memory_rows = 1, 64 do
 		known_models_to_archs[("R3A%02i%02i"):format(memory_rows, core_count)] = "R3" -- * "R3A1016" et al by LBPHacker, id:3236906
+	end
+end
+for core_count = 1, 99 do
+	for memory_rows = 1, 64 do
+		local key = ("R4A%02i%02i"):format(core_count, memory_rows)
+		known_models_to_archs[key] = "R4" -- * "R4A0316M" et al by LBPHacker, id:3399886
+		known_models_to_archs[key .. "M"] = "R4"
 	end
 end
 
