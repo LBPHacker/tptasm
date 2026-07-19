@@ -144,11 +144,11 @@ Lua 5.x version has been installed:
 
 ```sh
 # currently quite pointless to do but possible nonetheless
-$ luajit TPT-Script-Manager/modulepack.lua modulepack.conf run /path/to/source.asm model=R3
+$ luajit TPT-Script-Manager/modulepack.lua tptasm.modulepack run /path/to/source.asm model=R3
 ```
 
 TPTASM can be run from other current directories by passing modulepack.lua and
-modulepack.conf with appropriately relative or absolute paths.
+tptasm.modulepack with appropriately relative or absolute paths.
 
 ### Exporting labels
 
